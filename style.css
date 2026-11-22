@@ -94,7 +94,7 @@ a {
   top: 0;
   z-index: 10;
   background: var(--bg);
-  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -228,7 +228,7 @@ main {
 .fab {
   position: fixed;
   right: calc(14px + env(safe-area-inset-right, 0px));
-  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(2px + env(safe-area-inset-bottom, 0px));
   width: 56px;
   height: 56px;
   border: 0;
