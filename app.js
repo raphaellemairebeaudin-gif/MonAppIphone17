@@ -74,7 +74,7 @@ function buildShell() {
 }
 
 function drawDrawer() {
-  const name = db.getProfile().data.name || (session.user.email || '').split('@') || 'Moi';
+  const name = db.getProfile().data.name || (session.user.email || '').split('@')[0] || 'Moi';
   const link = (k) => h('a', { href: '#/' + k, class: 'nav' + (k === current ? ' on' : ''), onclick: () => setMenu(false) },
     icon(views[k].meta.icon), views[k].meta.label);
   ui.drawer.replaceChildren(
