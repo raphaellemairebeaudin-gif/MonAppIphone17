@@ -958,3 +958,10 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .rich-editor ul, .rich-editor ol { padding-left: 26px; }
 .rich-editor pre { white-space: pre-wrap; background: var(--card); padding: 10px; border-radius: 8px; }
 .rich-editor p, .rich-editor div { margin: 0 0 4px; }
+
+/* Cases à cocher interactives dans les notes. */
+.rich-editor .check-list { list-style: none; padding-left: 0; }
+.rich-editor .check-item, .rich-editor .md-todo { display: list-item; list-style: none; position: relative; padding-left: 30px; min-height: 28px; }
+.rich-editor .check-item > input[type="checkbox"], .rich-editor .md-todo > input[type="checkbox"] { position: absolute; left: 0; top: 2px; width: 21px; height: 21px; padding: 0; accent-color: var(--accent); }
+.rich-editor .check-item:has(input:checked), .rich-editor .md-todo:has(input:checked) { color: var(--sec); }
+.rich-editor ol > li, .rich-editor ul:not(.check-list) > li { margin: 4px 0; }
