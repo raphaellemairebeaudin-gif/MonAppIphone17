@@ -227,7 +227,8 @@ function editor(ctx, id) {
     const fontSize = parseFloat(style.fontSize) || 16;
     const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.2;
     const verticalInset = Math.max(0, (lineHeight - fontSize) / 2);
-    caretHint.style.top = Math.round(rect.top - hostRect.top + ctx.main.scrollTop + verticalInset) + 'px';
+    // Remonter légèrement le repère pour aligner sa ligne de base sur le texte.
+    caretHint.style.top = Math.round(rect.top - hostRect.top + ctx.main.scrollTop + verticalInset - 3) + 'px';
     caretHint.style.fontFamily = style.fontFamily;
     caretHint.style.fontSize = style.fontSize;
     caretHint.style.lineHeight = '1';
