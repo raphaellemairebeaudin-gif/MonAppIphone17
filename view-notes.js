@@ -358,11 +358,15 @@ function editor(ctx, id) {
     }
     // Capturer les trois styles indépendamment AVANT de changer l'un d'eux.
     // Safari peut perdre l'état des autres styles sur un curseur vide.
+    const selection = window.getSelection();
+    const hasSelectedText = !!selection && !selection.isCollapsed;
     const activeStyles = {};
     for (const key of ['bold', 'italic', 'underline'])
-      activeStyles[key] = hintFormat[key] ?? document.queryCommandState(key);
+      activeStyles[key] = hasSelectedText
+        ? document.queryCommandState(key)
+        : (hintFormat[key] ?? document.queryCommandState(key));
     document.execCommand(command, false, value);
-    if (toggled) {
+    if (toggled && !hasSelectedText) {
       activeStyles[command] = !activeStyles[command];
       Object.assign(hintFormat, activeStyles);
     } else resetHintFormat();
@@ -511,13 +515,14 @@ function editor(ctx, id) {
     const item = element.closest('li');
     const list = item?.parentElement;
     const block = element.closest('h2, h3, h4, blockquote, pre, p, div, li');
+    const hasSelectedText = !selection.isCollapsed;
     const states = {
       heading: block?.tagName === 'H2',
       checkbox: !!item && (list?.classList.contains('check-list') || !!item.querySelector(':scope > input[type="checkbox"]')),
       list: !!item && list?.tagName === 'UL' && !list.classList.contains('check-list'),
       'list-numbers': !!item && list?.tagName === 'OL',
-      bold: hintFormat.bold ?? document.queryCommandState('bold'),
-      italic: hintFormat.italic ?? document.queryCommandState('italic'),
+      bold: hasSelectedText ? document.queryCommandState('bold') : (hintFormat.bold ?? document.queryCommandState('bold')),
+      italic: hasSelectedText ? document.queryCommandState('italic') : (hintFormat.italic ?? document.queryCommandState('italic')),
       quote: block?.tagName === 'BLOCKQUOTE',
       code: block?.tagName === 'PRE',
       minus: false,
