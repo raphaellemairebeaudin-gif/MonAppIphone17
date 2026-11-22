@@ -159,26 +159,21 @@ function editor(ctx, id) {
     if (document.activeElement !== editable) return;
     const selection = window.getSelection();
     if (!selection?.rangeCount || !selection.isCollapsed || !editable.contains(selection.anchorNode)) return;
+    // Mesurer la position réelle du curseur avec une sonde temporaire.
+    // Les rectangles d'un Range vide sont souvent incorrects sur Safari iOS.
     const range = selection.getRangeAt(0).cloneRange();
-    let rect = range.getClientRects()[0];
-    if (!rect || (!rect.height && !rect.width)) {
-      const node = range.startContainer;
-      const offset = range.startOffset;
-      if (node.nodeType === Node.TEXT_NODE && offset > 0) {
-        const before = range.cloneRange();
-        before.setStart(node, offset - 1);
-        rect = before.getBoundingClientRect();
-        if (rect?.height) rect = { left: rect.right, top: rect.top, height: rect.height };
-      }
-    }
-    if (!rect?.height) {
-      const node = selection.anchorNode;
-      const element = node.nodeType === 1 ? node : node.parentElement;
-      const line = element.closest('li, p, div') || editable;
-      rect = line.getBoundingClientRect();
-      if (!rect.height) return;
-      rect = { left: rect.left, top: rect.top, height: rect.height };
-    }
+    const marker = document.createElement('span');
+    marker.textContent = '\u200b';
+    marker.style.cssText = 'display:inline-block;width:0;height:1em;overflow:hidden;pointer-events:none;vertical-align:baseline';
+    range.insertNode(marker);
+    const rect = marker.getBoundingClientRect();
+    const restored = document.createRange();
+    restored.setStartBefore(marker);
+    restored.collapse(true);
+    marker.remove();
+    selection.removeAllRanges();
+    selection.addRange(restored);
+    if (!rect.height) return;
     const node = selection.anchorNode;
     const element = node.nodeType === 1 ? node : node.parentElement;
     const style = getComputedStyle(element);
