@@ -123,9 +123,16 @@ function showLogin() {
       try {
         start(await db.signIn(email.value.trim(), pass.value));
       } catch (ex) {
-        err.textContent = ex && ex.status === 400
-          ? 'Courriel ou mot de passe invalide.'
-          : 'Connexion impossible. Vérifie ta connexion Internet.';
+        const msg = (ex && ex.message) || '';
+        if (!navigator.onLine) {
+          err.textContent = 'Connexion impossible. Vérifie ta connexion Internet.';
+        } else if (msg.includes('Email not confirmed')) {
+          err.textContent = 'Courriel non confirmé dans Supabase (coche Auto Confirm User).';
+        } else if (ex && ex.status === 400) {
+          err.textContent = 'Courriel ou mot de passe invalide.';
+        } else {
+          err.textContent = msg || 'Erreur de connexion à Supabase.';
+        }
         btn.disabled = false;
       }
     },
