@@ -152,7 +152,7 @@ function editor(ctx, id) {
   }
 
   // Repère purement visuel : ne jamais modifier le DOM éditable ni la sélection.
-  const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true', hidden: true }, 'a');
+  const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true', hidden: true }, 'A');
   let hintFrame = 0;
   let editingStarted = false;
   const updateCaretHint = () => {
@@ -178,9 +178,12 @@ function editor(ctx, id) {
     const bold = document.queryCommandState('bold');
     const italic = document.queryCommandState('italic');
     const underline = document.queryCommandState('underline');
-    caretHint.textContent = style.textTransform === 'uppercase' ? 'A' : 'a';
-    caretHint.style.left = Math.round(rect.left + 2) + 'px';
-    caretHint.style.top = Math.round(rect.top) + 'px';
+    caretHint.textContent = 'A';
+    // Coordonnées dans le contenu de main, pas dans la fenêtre :
+    // le repère défile avec la note sans se détacher de sa ligne.
+    const hostRect = ctx.main.getBoundingClientRect();
+    caretHint.style.left = Math.round(rect.left - hostRect.left + ctx.main.scrollLeft + 2) + 'px';
+    caretHint.style.top = Math.round(rect.top - hostRect.top + ctx.main.scrollTop) + 'px';
     caretHint.style.fontFamily = style.fontFamily;
     caretHint.style.fontSize = style.fontSize;
     caretHint.style.lineHeight = style.lineHeight;
@@ -476,8 +479,10 @@ function editor(ctx, id) {
     ]);
   }
 
+  ctx.main.classList.add('note-editing-host');
   ctx.main.append(titleIn, editable, status, toolbar, caretHint);
   ctx.onLeave(() => {
+    ctx.main.classList.remove('note-editing-host');
     if (timer) flush();
     cancelAnimationFrame(keyboardFrame);
     cancelAnimationFrame(hintFrame);
