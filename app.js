@@ -13,7 +13,21 @@ const root = document.getElementById('app');
 
 applyTheme();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+if ('serviceWorker' in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      location.reload();
+    }
+  });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(() => {});
+}
 
 let session = null;
 let ui = null;
@@ -60,7 +74,7 @@ function buildShell() {
 }
 
 function drawDrawer() {
-  const name = db.getProfile().data.name || (session.user.email || '').split('@')[0] || 'Moi';
+  const name = db.getProfile().data.name || (session.user.email || '').split('@') || 'Moi';
   const link = (k) => h('a', { href: '#/' + k, class: 'nav' + (k === current ? ' on' : ''), onclick: () => setMenu(false) },
     icon(views[k].meta.icon), views[k].meta.label);
   ui.drawer.replaceChildren(

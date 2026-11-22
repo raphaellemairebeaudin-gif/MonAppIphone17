@@ -1,4 +1,4 @@
-const CACHE = 'app-v4';
+const CACHE = 'mon-app-cache';
 const SHELL = [
   './', 'index.html', 'manifest.json', 'style.css', 'config.js', 'db.js', 'ui.js', 'app.js',
   'view-train.js', 'view-notes.js', 'view-budget.js', 'view-supp.js', 'view-profile.js', 'view-settings.js',
@@ -6,7 +6,16 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE).then(async (cache) => {
+      await Promise.all(
+        SHELL.map(async (url) => {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (res && res.status === 200) await cache.put(url, res);
+        })
+      );
+    }).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
@@ -27,18 +36,16 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(req, { ignoreSearch: false });
-      const network = fetch(req)
-        .then((res) => {
-          if (res && res.status === 200) cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => null);
-      if (cached) { network.catch(() => {}); return cached; }
-      const res = await network;
-      if (res) return res;
-      if (req.mode === 'navigate') return cache.match('index.html');
-      return new Response('', { status: 504 });
+      try {
+        const res = await fetch(req, { cache: 'no-store' });
+        if (res && res.status === 200) cache.put(req, res.clone());
+        return res;
+      } catch (err) {
+        const cached = await cache.match(req, { ignoreSearch: false });
+        if (cached) return cached;
+        if (req.mode === 'navigate') return cache.match('index.html');
+        return new Response('', { status: 504 });
+      }
     })
   );
 });
