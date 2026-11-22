@@ -174,6 +174,15 @@ function editor(ctx, id) {
       const left = bounds.left + (parseFloat(style.paddingLeft) || 0);
       rect = { left, top: bounds.top, height: parseFloat(style.lineHeight) || parseFloat(style.fontSize) || 20 };
     }
+    // Les éléments de liste vides ne fournissent pas toujours un rectangle
+    // de curseur sur iOS : se caler sur le contenu du li, après son marqueur.
+    const listItem = element?.closest('li');
+    if (listItem && editable.contains(listItem) && (!rect?.height || rect.width > 20)) {
+      const bounds = listItem.getBoundingClientRect();
+      const itemStyle = getComputedStyle(listItem);
+      const left = bounds.left + (parseFloat(itemStyle.paddingLeft) || 0);
+      rect = { left, top: bounds.top, height: parseFloat(itemStyle.lineHeight) || parseFloat(itemStyle.fontSize) || 20 };
+    }
     if (!rect?.height) return;
     const style = getComputedStyle(element);
     const bold = hintFormat.bold ?? document.queryCommandState('bold');
@@ -462,8 +471,22 @@ function editor(ctx, id) {
     selection.removeAllRanges(); selection.addRange(cursor);
     rememberSelection(); sync();
   };
+  const toggleHeading = () => {
+    editable.focus({ preventScroll: true });
+    if (savedRange) {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(savedRange);
+    }
+    const selection = window.getSelection();
+    const node = selection?.anchorNode;
+    const element = node?.nodeType === 1 ? node : node?.parentElement;
+    const block = element?.closest('h2, h3, h4, p, div, li');
+    const isHeading = block?.tagName === 'H2' && editable.contains(block);
+    format('formatBlock', isHeading ? 'div' : 'h2');
+  };
   const tools = [
-    ['heading', 'Titre', () => format('formatBlock', 'h2')],
+    ['heading', 'Titre', toggleHeading],
     ['checkbox', 'Case à cocher', insertCheckbox],
     ['list', 'Liste à puces', () => toggleList('UL')],
     ['list-numbers', 'Liste numérotée', () => toggleList('OL')],
