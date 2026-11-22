@@ -187,9 +187,9 @@ function editor(ctx, id) {
     caretHint.style.fontFamily = style.fontFamily;
     caretHint.style.fontSize = style.fontSize;
     caretHint.style.lineHeight = style.lineHeight;
-    caretHint.style.fontWeight = bold ? '700' : style.fontWeight;
-    caretHint.style.fontStyle = italic ? 'italic' : style.fontStyle;
-    caretHint.style.textDecoration = underline ? 'underline' : style.textDecorationLine;
+    caretHint.style.fontWeight = bold ? '700' : '400';
+    caretHint.style.fontStyle = italic ? 'italic' : 'normal';
+    caretHint.style.textDecoration = underline ? 'underline' : 'none';
     caretHint.hidden = false;
   };
   const scheduleCaretHint = () => {
