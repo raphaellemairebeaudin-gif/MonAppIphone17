@@ -289,6 +289,40 @@ function editor(ctx, id) {
     selection.removeAllRanges(); selection.addRange(range);
     rememberSelection(); sync();
   };
+  const replaceEmptyListItem = (item, kind) => {
+    if (!item || item.textContent.trim()) return false;
+    const parent = item.parentElement;
+    if (!parent || !['OL', 'UL'].includes(parent.tagName)) return false;
+    const wasCheckbox = parent.classList.contains('check-list') || !!item.querySelector(':scope > input[type="checkbox"]');
+    if ((kind === 'CHECK' && wasCheckbox) || (kind !== 'CHECK' && !wasCheckbox && parent.tagName === kind)) return false;
+    const siblings = [...parent.children];
+    const index = siblings.indexOf(item);
+    const nextItems = siblings.slice(index + 1);
+    if (nextItems.length) {
+      const after = parent.cloneNode(false);
+      after.append(...nextItems);
+      parent.after(after);
+    }
+    const newList = document.createElement(kind === 'CHECK' ? 'ul' : kind.toLowerCase());
+    if (kind === 'CHECK') newList.className = 'check-list';
+    const next = document.createElement('li');
+    if (kind === 'CHECK') {
+      next.className = 'check-item';
+      const check = document.createElement('input');
+      check.type = 'checkbox'; check.contentEditable = 'false';
+      next.append(check, document.createTextNode(' '));
+    } else next.append(document.createElement('br'));
+    newList.append(next);
+    parent.after(newList);
+    item.remove();
+    if (!parent.children.length) parent.remove();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(next); range.collapse(false);
+    selection.removeAllRanges(); selection.addRange(range);
+    rememberSelection(); sync();
+    return true;
+  };
   const toggleList = (kind) => {
     editable.focus({ preventScroll: true });
     if (savedRange) {
@@ -296,6 +330,7 @@ function editor(ctx, id) {
       selection.removeAllRanges(); selection.addRange(savedRange);
     }
     const item = currentItem();
+    if (replaceEmptyListItem(item, kind)) return;
     if (item && item.parentElement.tagName === kind && !item.parentElement.classList.contains('check-list')) {
       removeListMarker(item);
     } else format(kind === 'OL' ? 'insertOrderedList' : 'insertUnorderedList');
@@ -307,6 +342,7 @@ function editor(ctx, id) {
       selection.removeAllRanges(); selection.addRange(savedRange);
     }
     const existing = currentItem();
+    if (replaceEmptyListItem(existing, 'CHECK')) return;
     if (existing && (existing.parentElement.classList.contains('check-list') || existing.querySelector(':scope > input[type="checkbox"]'))) {
       removeListMarker(existing);
       return;
