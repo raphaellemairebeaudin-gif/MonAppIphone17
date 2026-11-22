@@ -155,6 +155,7 @@ function editor(ctx, id) {
   const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true', hidden: true }, 'A');
   let hintFrame = 0;
   let editingStarted = false;
+  const hintFormat = { bold: null, italic: null, underline: null };
   const updateCaretHint = () => {
     caretHint.hidden = true;
     if (!editingStarted || document.activeElement !== editable) return;
@@ -175,9 +176,9 @@ function editor(ctx, id) {
     }
     if (!rect?.height) return;
     const style = getComputedStyle(element);
-    const bold = document.queryCommandState('bold');
-    const italic = document.queryCommandState('italic');
-    const underline = document.queryCommandState('underline');
+    const bold = hintFormat.bold ?? document.queryCommandState('bold');
+    const italic = hintFormat.italic ?? document.queryCommandState('italic');
+    const underline = hintFormat.underline ?? document.queryCommandState('underline');
     caretHint.textContent = 'A';
     // Coordonnées dans le contenu de main, pas dans la fenêtre :
     // le repère défile avec la note sans se détacher de sa ligne.
@@ -196,10 +197,11 @@ function editor(ctx, id) {
     cancelAnimationFrame(hintFrame);
     hintFrame = requestAnimationFrame(updateCaretHint);
   };
+  const resetHintFormat = () => { hintFormat.bold = null; hintFormat.italic = null; hintFormat.underline = null; };
   const beginEditing = () => { editingStarted = true; scheduleCaretHint(); };
-  editable.addEventListener('pointerdown', beginEditing);
+  editable.addEventListener('pointerdown', () => { resetHintFormat(); beginEditing(); });
   editable.addEventListener('keydown', beginEditing);
-  editable.addEventListener('input', beginEditing);
+  editable.addEventListener('input', () => { resetHintFormat(); beginEditing(); });
   editable.addEventListener('focus', scheduleCaretHint);
   editable.addEventListener('blur', () => { editingStarted = false; caretHint.hidden = true; });
   editable.addEventListener('keyup', scheduleCaretHint);
@@ -307,6 +309,8 @@ function editor(ctx, id) {
   };
   const format = (command, value) => {
     editingStarted = true;
+    const toggled = ['bold', 'italic', 'underline'].includes(command);
+    const nextHintState = toggled ? !(hintFormat[command] ?? document.queryCommandState(command)) : null;
     editable.focus({ preventScroll: true });
     if (savedRange) {
       const sel = window.getSelection();
@@ -314,6 +318,8 @@ function editor(ctx, id) {
       sel.addRange(savedRange);
     }
     document.execCommand(command, false, value);
+    if (toggled) hintFormat[command] = nextHintState;
+    else resetHintFormat();
     rememberSelection();
     sync();
     scheduleCaretHint();
