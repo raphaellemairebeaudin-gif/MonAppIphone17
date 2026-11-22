@@ -1011,3 +1011,9 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .rich-editor span[data-text-size="24"] { font-size: 24px; }
 
 .note-size-choice.is-active { outline: 1px solid #fff; outline-offset: -1px; }
+
+/* La case cochée devient verte; la case vide conserve son apparence actuelle. */
+.rich-editor .check-item > input[type="checkbox"]:checked,
+.rich-editor .md-todo > input[type="checkbox"]:checked {
+  accent-color: #22c55e;
+}
