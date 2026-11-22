@@ -221,9 +221,11 @@ function editor(ctx, id) {
   };
   const resetHintFormat = () => { hintFormat.bold = null; hintFormat.italic = null; hintFormat.underline = null; };
   const beginEditing = () => { editingStarted = true; scheduleCaretHint(); };
-  editable.addEventListener('pointerdown', () => { resetHintFormat(); beginEditing(); });
+  // La saisie, les espaces et les changements de ligne ne désactivent
+  // jamais les options choisies explicitement par l'utilisateur.
+  editable.addEventListener('pointerdown', beginEditing);
   editable.addEventListener('keydown', beginEditing);
-  editable.addEventListener('input', () => { resetHintFormat(); beginEditing(); });
+  editable.addEventListener('input', beginEditing);
   editable.addEventListener('focus', scheduleCaretHint);
   editable.addEventListener('blur', () => { editingStarted = false; caretHint.hidden = true; });
   editable.addEventListener('keyup', scheduleCaretHint);
@@ -371,7 +373,7 @@ function editor(ctx, id) {
     if (toggled && !hasSelectedText) {
       activeStyles[command] = !activeStyles[command];
       Object.assign(hintFormat, activeStyles);
-    } else resetHintFormat();
+    } else if (hasSelectedText) resetHintFormat();
     rememberSelection();
     sync();
     scheduleCaretHint();
