@@ -496,13 +496,51 @@ function editor(ctx, id) {
     ['code', 'Code', () => format('formatBlock', 'pre')],
     ['minus', 'Séparateur', () => format('insertHorizontalRule')],
   ];
-  toolbar.append(...tools.map(([ic, label, fn]) =>
-    h('button', {
-      type: 'button', 'aria-label': label,
+  const toolButtons = new Map();
+  const updateToolStates = () => {
+    const selection = window.getSelection();
+    const node = selection?.anchorNode;
+    const element = node?.nodeType === 1 ? node : node?.parentElement;
+    if (!element || !editable.contains(element)) {
+      for (const button of toolButtons.values()) {
+        button.classList.remove('is-active');
+        button.setAttribute('aria-pressed', 'false');
+      }
+      return;
+    }
+    const item = element.closest('li');
+    const list = item?.parentElement;
+    const block = element.closest('h2, h3, h4, blockquote, pre, p, div, li');
+    const states = {
+      heading: block?.tagName === 'H2',
+      checkbox: !!item && (list?.classList.contains('check-list') || !!item.querySelector(':scope > input[type="checkbox"]')),
+      list: !!item && list?.tagName === 'UL' && !list.classList.contains('check-list'),
+      'list-numbers': !!item && list?.tagName === 'OL',
+      bold: hintFormat.bold ?? document.queryCommandState('bold'),
+      italic: hintFormat.italic ?? document.queryCommandState('italic'),
+      quote: block?.tagName === 'BLOCKQUOTE',
+      code: block?.tagName === 'PRE',
+      minus: false,
+    };
+    for (const [name, button] of toolButtons) {
+      const active = !!states[name];
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
+  };
+  toolbar.append(...tools.map(([ic, label, fn]) => {
+    const button = h('button', {
+      type: 'button', 'aria-label': label, 'aria-pressed': 'false',
       onpointerdown: (e) => { rememberSelection(); e.preventDefault(); },
       onmousedown: (e) => e.preventDefault(),
-      onclick: fn,
-    }, icon(ic))));
+      onclick: () => { fn(); requestAnimationFrame(updateToolStates); },
+    }, icon(ic));
+    toolButtons.set(ic, button);
+    return button;
+  }));
+  document.addEventListener('selectionchange', updateToolStates);
+  editable.addEventListener('input', updateToolStates);
+  editable.addEventListener('keyup', updateToolStates);
   editable.addEventListener('keyup', rememberSelection);
   editable.addEventListener('mouseup', rememberSelection);
   document.addEventListener('selectionchange', rememberSelection);
@@ -561,6 +599,7 @@ function editor(ctx, id) {
     window.visualViewport?.removeEventListener('resize', positionToolbar);
     window.visualViewport?.removeEventListener('scroll', positionToolbar);
     window.removeEventListener('resize', positionToolbar);
+    document.removeEventListener('selectionchange', updateToolStates);
     document.removeEventListener('selectionchange', rememberSelection);
   });
   drawActions();
