@@ -154,11 +154,9 @@ function editor(ctx, id) {
   // Indicateur visuel uniquement : le « a » n'entre jamais dans la note.
   const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true' }, 'a');
   let hintFrame = 0;
-  let hintTimeout = 0;
-  let hintActive = false;
   const updateCaretHint = () => {
     caretHint.hidden = true;
-    if (!hintActive || document.activeElement !== editable) return;
+    if (document.activeElement !== editable) return;
     const selection = window.getSelection();
     if (!selection?.rangeCount || !selection.isCollapsed || !editable.contains(selection.anchorNode)) return;
     const range = selection.getRangeAt(0).cloneRange();
@@ -199,21 +197,11 @@ function editor(ctx, id) {
     cancelAnimationFrame(hintFrame);
     hintFrame = requestAnimationFrame(updateCaretHint);
   };
-  const showHintWhileTyping = () => {
-    hintActive = true;
-    clearTimeout(hintTimeout);
-    scheduleCaretHint();
-    hintTimeout = setTimeout(() => {
-      hintActive = false;
-      caretHint.hidden = true;
-    }, 1200);
-  };
-  editable.addEventListener('input', showHintWhileTyping);
-  editable.addEventListener('blur', () => {
-    hintActive = false;
-    clearTimeout(hintTimeout);
-    caretHint.hidden = true;
-  });
+  // Visible dès l'entrée en édition et tant que le champ garde le focus,
+  // même si l'utilisateur cesse de taper. Masqué dès qu'il quitte le champ.
+  editable.addEventListener('input', scheduleCaretHint);
+  editable.addEventListener('focus', scheduleCaretHint);
+  editable.addEventListener('blur', () => { caretHint.hidden = true; });
   editable.addEventListener('keyup', scheduleCaretHint);
   editable.addEventListener('pointerup', scheduleCaretHint);
   document.addEventListener('selectionchange', scheduleCaretHint);
@@ -492,6 +480,9 @@ function editor(ctx, id) {
   ctx.onLeave(() => {
     if (timer) flush();
     cancelAnimationFrame(keyboardFrame);
+    cancelAnimationFrame(hintFrame);
+    document.removeEventListener('selectionchange', scheduleCaretHint);
+    window.removeEventListener('scroll', scheduleCaretHint, true);
     window.visualViewport?.removeEventListener('resize', positionToolbar);
     window.visualViewport?.removeEventListener('scroll', positionToolbar);
     window.removeEventListener('resize', positionToolbar);
