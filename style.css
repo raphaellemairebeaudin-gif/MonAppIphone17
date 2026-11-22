@@ -776,6 +776,13 @@ h3.sec {
   background: var(--card);
 }
 
+.toolbar button {
+  border: 1px solid #414141;
+}
+.toolbar button.is-active {
+  border-color: #fff;
+}
+
 .note-title {
   font-size: 26px;
   font-weight: 600;
