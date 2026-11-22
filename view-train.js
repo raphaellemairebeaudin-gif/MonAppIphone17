@@ -20,7 +20,7 @@ const tomorrow = () => {
 };
 
 function getPlan() {
-  const row = db.all('plan')[0];
+  const row = db.all('plan').at(0);
   return { row, days: (row && row.data && row.data.days) || {} };
 }
 
@@ -64,7 +64,6 @@ export function render(ctx) {
 
     const sections = [];
 
-    // 1. Carte du plan hebdomadaire (séance du jour ou invitation à créer le plan)
     if (todayRoutine && todayRoutine.name) {
       const exCount = (todayRoutine.exercises || []).length;
       sections.push(
@@ -115,7 +114,6 @@ export function render(ctx) {
       );
     }
 
-    // 2. Entraînements prévus pour plus tard
     if (upcoming.length) {
       sections.push(
         h('div', {},
@@ -140,7 +138,6 @@ export function render(ctx) {
       );
     }
 
-    // 3. Historique des entraînements
     if (historyList.length) {
       sections.push(
         h('div', {},
@@ -191,7 +188,7 @@ function lastPerformance(name) {
   for (const w of ws) {
     const ex = (w.data.exercises || []).find((e) => e.name.toLowerCase() === key);
     if (ex && ex.sets && ex.sets.length) {
-      const s = ex.sets[ex.sets.length - 1];
+      const s = ex.sets.at(-1);
       const parts = [];
       if (s.reps) parts.push(s.reps + ' reps');
       if (s.weight) parts.push(s.weight + ' kg');
@@ -295,13 +292,13 @@ function buildExercisePicker(onSelect) {
           h('div', {
             class: 'row tap',
             style: { padding: '10px 0' },
-onclick: () => {
-onSelect(ex.data.name);
-searchIn.value = '';
-drawList();
-},
-},
-h('div', { class: 'grow' },
+            onclick: () => {
+              onSelect(ex.data.name);
+              searchIn.value = '';
+              drawList();
+            },
+          },
+          h('div', { class: 'grow' },
 h('div', { class: 't' }, ex.data.name),
 last ? h('div', { class: 's' }, last) : null),
 h('span', { class: 'pos', style: { fontSize: '13px', fontWeight: 500 } }, '+ Ajouter'),
@@ -417,7 +414,7 @@ h('button', {
 class: 'link',
 type: 'button',
 onclick: () => {
-const l = ex.sets[ex.sets.length - 1] || { reps: '', weight: '' };
+const l = ex.sets.at(-1) || { reps: '', weight: '' };
 ex.sets.push({ reps: l.reps, weight: l.weight });
 drawEx();
 },
@@ -541,7 +538,7 @@ h('button', {
 class: 'link',
 type: 'button',
 onclick: () => {
-const l = ex.sets[ex.sets.length - 1] || { reps: '', weight: '' };
+const l = ex.sets.at(-1) || { reps: '', weight: '' };
 ex.sets.push({ reps: l.reps, weight: l.weight });
 drawEx();
 },

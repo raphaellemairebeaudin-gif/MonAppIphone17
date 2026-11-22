@@ -49,15 +49,19 @@ document.addEventListener('touchstart', (e) => {
     touchStartX = null;
     return;
   }
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
+  const touch = e.touches.item(0);
+  if (!touch) return;
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
   touchStartTime = Date.now();
 }, { passive: true });
 
 document.addEventListener('touchend', (e) => {
   if (touchStartX === null || !ui || !e.changedTouches.length) return;
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
+  const touch = e.changedTouches.item(0);
+  if (!touch) return;
+  const dx = touch.clientX - touchStartX;
+  const dy = touch.clientY - touchStartY;
   const dt = Date.now() - touchStartTime;
   touchStartX = null;
 
@@ -103,8 +107,8 @@ function buildShell() {
 }
 
 function drawDrawer() {
-  const emailPrefix = (session.user.email || '').split('@')[0];
-  const name = db.getProfile().data.name || emailPrefix || 'Moi';
+  const emailPrefix = (session.user.email || '').split('@').at(0) || '';
+  const name = String(db.getProfile().data.name || emailPrefix || 'Moi');
   const link = (k) => h('a', { href: '#/' + k, class: 'nav' + (k === current ? ' on' : ''), onclick: () => setMenu(false) },
     icon(views[k].meta.icon), views[k].meta.label);
   ui.drawer.replaceChildren(
@@ -129,8 +133,12 @@ function route() {
   ui.ctx.setFab(null);
   ui.ctx.main.replaceChildren();
   window.scrollTo(0, 0);
-  views[current].render(ui.ctx, param);
-  drawDrawer();
+  try {
+    views[current].render(ui.ctx, param);
+    drawDrawer();
+  } catch (err) {
+    ui.ctx.main.replaceChildren(h('p', { class: 'err' }, 'Erreur : ' + (err && err.message ? err.message : String(err))));
+  }
   setMenu(false);
 }
 
