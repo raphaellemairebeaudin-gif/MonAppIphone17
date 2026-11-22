@@ -272,7 +272,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 16px);
+  padding: max(12px, env(safe-area-inset-top)) 14px calc(env(safe-area-inset-bottom) + 16px);
   overscroll-behavior: contain;
 }
 
