@@ -119,7 +119,7 @@ function editor(ctx, id) {
   // Leur contenu n'est remplacé par du HTML que lors d'une modification.
   if (data.body.startsWith(RICH)) {
     const parsed = new DOMParser().parseFromString(data.body.slice(RICH.length), 'text/html');
-    const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'P', 'DIV', 'BR', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'H2', 'H3', 'H4', 'CODE', 'PRE', 'HR', 'SPAN']);
+    const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'P', 'DIV', 'BR', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'H2', 'H3', 'H4', 'CODE', 'PRE', 'HR', 'SPAN', 'INPUT']);
     const clean = (node) => {
       for (const child of [...node.childNodes]) {
         if (child.nodeType === Node.COMMENT_NODE) { child.remove(); continue; }
@@ -127,6 +127,15 @@ function editor(ctx, id) {
         if (!allowed.has(child.tagName)) {
           if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'SVG', 'MATH'].includes(child.tagName)) child.remove();
           else { clean(child); child.replaceWith(...child.childNodes); }
+          continue;
+        }
+        if (child.tagName === 'INPUT') {
+          if (child.getAttribute('type') !== 'checkbox') { child.remove(); continue; }
+          const checked = child.hasAttribute('checked');
+          for (const attr of [...child.attributes]) child.removeAttribute(attr.name);
+          child.type = 'checkbox';
+          child.checked = checked;
+          if (checked) child.setAttribute('checked', '');
           continue;
         }
         for (const attr of [...child.attributes]) child.removeAttribute(attr.name);
@@ -137,12 +146,42 @@ function editor(ctx, id) {
     editable.replaceChildren(...[...parsed.body.childNodes].map(n => document.importNode(n, true)));
   } else if (data.body) {
     editable.append(...renderMd(data.body, () => {}));
-    for (const checkbox of editable.querySelectorAll('input[type="checkbox"]')) {
-      checkbox.replaceWith(document.createTextNode(checkbox.checked ? '☑ ' : '☐ '));
-    }
+    // Les anciennes listes Markdown deviennent également cochables.
   }
 
   const toolbar = h('div', { class: 'toolbar note-keyboard-toolbar' });
+  editable.addEventListener('change', (e) => {
+    if (e.target.matches('input[type="checkbox"]')) {
+      e.target.toggleAttribute('checked', e.target.checked);
+      sync();
+    }
+  });
+  editable.addEventListener('beforeinput', (e) => {
+    if (e.inputType !== 'insertParagraph') return;
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) return;
+    const node = selection.anchorNode;
+    const item = (node?.nodeType === 1 ? node : node?.parentElement)?.closest('li');
+    if (!item || !editable.contains(item) || !item.querySelector(':scope > input[type="checkbox"]')) return;
+    e.preventDefault();
+    if (!item.textContent.trim()) {
+      const p = document.createElement('p');
+      p.append(document.createElement('br'));
+      item.parentElement.after(p);
+      item.remove();
+      const r = document.createRange(); r.selectNodeContents(p); r.collapse(true);
+      selection.removeAllRanges(); selection.addRange(r);
+    } else {
+      const next = document.createElement('li');
+      next.className = 'check-item';
+      const check = document.createElement('input'); check.type = 'checkbox'; check.contentEditable = 'false';
+      next.append(check, document.createTextNode(' '));
+      item.after(next);
+      const r = document.createRange(); r.selectNodeContents(next); r.collapse(false);
+      selection.removeAllRanges(); selection.addRange(r);
+    }
+    sync();
+  });
   const sync = () => {
     data.body = RICH + editable.innerHTML;
     changed();
@@ -189,9 +228,28 @@ function editor(ctx, id) {
     rememberSelection();
     sync();
   };
+  const insertCheckbox = () => {
+    editable.focus({ preventScroll: true });
+    if (savedRange) {
+      const selection = window.getSelection();
+      selection.removeAllRanges(); selection.addRange(savedRange);
+    }
+    const selection = window.getSelection();
+    const li = document.createElement('li'); li.className = 'check-item';
+    const check = document.createElement('input'); check.type = 'checkbox'; check.contentEditable = 'false';
+    li.append(check, document.createTextNode(' '));
+    const list = document.createElement('ul'); list.className = 'check-list'; list.append(li);
+    const range = selection.getRangeAt(0);
+    const block = (range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement).closest('p, div, li');
+    if (block && editable.contains(block) && block !== editable) block.after(list);
+    else { range.collapse(false); range.insertNode(list); }
+    const cursor = document.createRange(); cursor.selectNodeContents(li); cursor.collapse(false);
+    selection.removeAllRanges(); selection.addRange(cursor);
+    rememberSelection(); sync();
+  };
   const tools = [
     ['heading', 'Titre', () => format('formatBlock', 'h2')],
-    ['checkbox', 'Case à cocher', () => format('insertText', '☐ ')],
+    ['checkbox', 'Case à cocher', insertCheckbox],
     ['list', 'Liste à puces', () => format('insertUnorderedList')],
     ['list-numbers', 'Liste numérotée', () => format('insertOrderedList')],
     ['bold', 'Gras', () => format('bold')],
