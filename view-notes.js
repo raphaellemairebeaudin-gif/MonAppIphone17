@@ -154,9 +154,11 @@ function editor(ctx, id) {
   // Indicateur visuel uniquement : le « a » n'entre jamais dans la note.
   const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true' }, 'a');
   let hintFrame = 0;
+  let hintTimeout = 0;
+  let hintActive = false;
   const updateCaretHint = () => {
     caretHint.hidden = true;
-    if (document.activeElement !== editable) return;
+    if (!hintActive || document.activeElement !== editable) return;
     const selection = window.getSelection();
     if (!selection?.rangeCount || !selection.isCollapsed || !editable.contains(selection.anchorNode)) return;
     const range = selection.getRangeAt(0).cloneRange();
@@ -197,9 +199,21 @@ function editor(ctx, id) {
     cancelAnimationFrame(hintFrame);
     hintFrame = requestAnimationFrame(updateCaretHint);
   };
-  editable.addEventListener('input', scheduleCaretHint);
-  editable.addEventListener('focus', scheduleCaretHint);
-  editable.addEventListener('blur', () => { caretHint.hidden = true; });
+  const showHintWhileTyping = () => {
+    hintActive = true;
+    clearTimeout(hintTimeout);
+    scheduleCaretHint();
+    hintTimeout = setTimeout(() => {
+      hintActive = false;
+      caretHint.hidden = true;
+    }, 1200);
+  };
+  editable.addEventListener('input', showHintWhileTyping);
+  editable.addEventListener('blur', () => {
+    hintActive = false;
+    clearTimeout(hintTimeout);
+    caretHint.hidden = true;
+  });
   editable.addEventListener('keyup', scheduleCaretHint);
   editable.addEventListener('pointerup', scheduleCaretHint);
   document.addEventListener('selectionchange', scheduleCaretHint);
@@ -446,9 +460,6 @@ function editor(ctx, id) {
   };
   const followKeyboard = () => {
     cancelAnimationFrame(keyboardFrame);
-    cancelAnimationFrame(hintFrame);
-    document.removeEventListener('selectionchange', scheduleCaretHint);
-    window.removeEventListener('scroll', scheduleCaretHint, true);
     let frames = 0;
     const tick = () => {
       positionToolbar();
