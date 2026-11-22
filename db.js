@@ -1,15 +1,7 @@
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 
-await new Promise((resolve, reject) => {
-  if (window.supabase) return resolve();
-  const s = document.createElement('script');
-  s.src = 'https://jsdelivr.net';
-  s.onload = resolve;
-  s.onerror = () => reject(new Error('Impossible de charger le SDK Supabase.'));
-  document.head.appendChild(s);
-});
-
-export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let rows = [];
 let userId = null;

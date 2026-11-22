@@ -125,7 +125,7 @@ function showLogin() {
       } catch (ex) {
         err.textContent = ex && ex.status === 400
           ? 'Courriel ou mot de passe invalide.'
-          : `Erreur (${ex?.status || '?'}) : ${ex?.message || 'Connexion impossible.'}`;
+          : 'Connexion impossible. Vérifie ta connexion Internet.';
         btn.disabled = false;
       }
     },
@@ -140,10 +140,6 @@ document.addEventListener('visibilitychange', () => {
 });
 
 (async () => {
-  try {
-    const s = await db.getSession();
-    if (s) start(s); else showLogin();
-  } catch (e) {
-    root.replaceChildren(h('p', { class: 'err', style: { padding: '24px' } }, 'Erreur au démarrage : ' + (e?.message || e)));
-  }
+  const s = await db.getSession();
+  if (s) start(s); else showLogin();
 })();
