@@ -39,6 +39,35 @@ let started = false;
 
 function setMenu(open) { document.body.classList.toggle('menu-open', open); }
 
+let touchStartX = null;
+let touchStartY = null;
+let touchStartTime = 0;
+
+document.addEventListener('touchstart', (e) => {
+  if (!ui || e.touches.length !== 1) { touchStartX = null; return; }
+  if (document.querySelector('.sheet-wrap.open') || e.target.closest('.toolbar')) {
+    touchStartX = null;
+    return;
+  }
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  touchStartTime = Date.now();
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  if (touchStartX === null || !ui || !e.changedTouches.length) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const dt = Date.now() - touchStartTime;
+  touchStartX = null;
+
+  if (dt > 600 || Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+  const isOpen = document.body.classList.contains('menu-open');
+  if (dx > 0 && !isOpen) setMenu(true);
+  else if (dx < 0 && isOpen) setMenu(false);
+}, { passive: true });
+
 function buildShell() {
   const menuBtn = h('button', {
     class: 'icon-btn', type: 'button', 'aria-label': 'Ouvrir le menu',
@@ -74,7 +103,8 @@ function buildShell() {
 }
 
 function drawDrawer() {
-  const name = db.getProfile().data.name || (session.user.email || '').split('@')[0] || 'Moi';
+  const emailPrefix = (session.user.email || '').split('@')[0];
+  const name = db.getProfile().data.name || emailPrefix || 'Moi';
   const link = (k) => h('a', { href: '#/' + k, class: 'nav' + (k === current ? ' on' : ''), onclick: () => setMenu(false) },
     icon(views[k].meta.icon), views[k].meta.label);
   ui.drawer.replaceChildren(
