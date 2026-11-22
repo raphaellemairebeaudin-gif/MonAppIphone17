@@ -979,3 +979,28 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .note-caret-hint { position: absolute; z-index: 26; pointer-events: none; user-select: none; -webkit-user-select: none; color: var(--text, #f4f4f4); opacity: 1; animation: note-hint-blink 1s steps(1, end) infinite; }
 .note-caret-hint[hidden] { display: none !important; }
 @keyframes note-hint-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+.rich-editor h4 { font-size: 17px; margin: 8px 0 4px; }
+.note-size-menu {
+  position: fixed;
+  z-index: 30;
+  width: 164px;
+  padding: 6px;
+  background: var(--bg);
+  border: 1px solid #666;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #0008;
+}
+.note-size-menu[hidden] { display: none; }
+.note-size-choice {
+  display: block;
+  width: 100%;
+  padding: 11px 9px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  text-align: left;
+  font-size: 14px;
+}
+.note-size-choice:active { background: var(--card); }
