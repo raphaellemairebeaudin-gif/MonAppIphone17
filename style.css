@@ -302,9 +302,16 @@ main {
   pointer-events: none;
 }
 
+/* iOS affiche sa zone inférieure avec le fond de la PWA.
+   Ne pas assombrir seulement la partie visible de l'écran :
+   cela créait la bande horizontale au bas du menu. */
 .menu-open .overlay {
-  opacity: 1;
+  opacity: 0;
   pointer-events: auto;
+}
+
+.menu-open .drawer {
+  box-shadow: 2px 0 16px rgba(0,0,0,.18);
 }
 
 .menu-open .drawer {
