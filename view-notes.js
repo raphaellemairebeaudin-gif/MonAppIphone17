@@ -138,9 +138,11 @@ function editor(ctx, id) {
           if (checked) child.setAttribute('checked', '');
           continue;
         }
+        const safeTextSize = child.tagName === 'SPAN' && ['16', '17', '20', '24'].includes(child.dataset.textSize) ? child.dataset.textSize : '';
         const safeClass = child.tagName === 'UL' && child.classList.contains('check-list') ? 'check-list' : child.tagName === 'LI' && child.classList.contains('check-item') ? 'check-item' : child.tagName === 'LABEL' && child.classList.contains('md-todo') ? 'md-todo' : '';
         for (const attr of [...child.attributes]) child.removeAttribute(attr.name);
         if (safeClass) child.className = safeClass;
+        if (safeTextSize) child.dataset.textSize = safeTextSize;
         clean(child);
       }
     };
@@ -483,6 +485,9 @@ function editor(ctx, id) {
     ['div', 'Normal', '16 px'],
   ];
   const closeSizeMenu = () => { sizeMenu.hidden = true; };
+  let pendingTextSize = null;
+  // La taille est appliquée aux prochains caractères, même au milieu d'une ligne.
+  // Les caractères déjà écrits ne sont jamais reformatés.
   const applyTextSize = (tag) => {
     closeSizeMenu();
     editable.focus({ preventScroll: true });
@@ -491,39 +496,32 @@ function editor(ctx, id) {
       selection.removeAllRanges();
       selection.addRange(savedRange);
     }
-    const selection = window.getSelection();
-    const node = selection?.anchorNode;
-    const element = node?.nodeType === 1 ? node : node?.parentElement;
-    const block = element?.closest('h2, h3, h4, p, div');
-    if (block && editable.contains(block) && selection?.isCollapsed && selection.rangeCount) {
-      const current = block.tagName.toLowerCase();
-      if (current === tag) { updateToolStates(); return; }
-      // Scinder au curseur : le texte déjà écrit conserve sa taille.
-      const caret = selection.getRangeAt(0).cloneRange();
-      const before = document.createRange();
-      before.selectNodeContents(block);
-      before.setEnd(caret.startContainer, caret.startOffset);
-      const hasBefore = !!before.toString().trim();
-      if (hasBefore) {
-        const rest = document.createRange();
-        rest.selectNodeContents(block);
-        rest.setStart(caret.startContainer, caret.startOffset);
-        const trailing = rest.extractContents();
-        const nextBlock = document.createElement(tag);
-        nextBlock.append(trailing);
-        if (!nextBlock.textContent && !nextBlock.querySelector('br')) nextBlock.append(document.createElement('br'));
-        block.after(nextBlock);
-        const next = document.createRange();
-        next.selectNodeContents(nextBlock); next.collapse(true);
-        selection.removeAllRanges(); selection.addRange(next);
-        resetHintFormat();
-        rememberSelection(); sync(); scheduleCaretHint(); updateToolStates();
-        return;
-      }
-    }
-    format('formatBlock', tag);
+    pendingTextSize = { h2: '24', h3: '20', h4: '17', div: '16' }[tag];
+    rememberSelection();
     updateToolStates();
+    scheduleCaretHint();
   };
+  editable.addEventListener('beforeinput', (event) => {
+    if (!pendingTextSize || event.inputType !== 'insertText' || !event.data || event.isComposing) return;
+    const selection = window.getSelection();
+    if (!selection?.rangeCount || !editable.contains(selection.anchorNode)) return;
+    event.preventDefault();
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const span = document.createElement('span');
+    span.dataset.textSize = pendingTextSize;
+    const textNode = document.createTextNode(event.data);
+    span.append(textNode);
+    range.insertNode(span);
+    const next = document.createRange();
+    next.setStart(textNode, textNode.length);
+    next.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(next);
+    rememberSelection();
+    sync();
+    scheduleCaretHint();
+  });
   sizeMenu.append(...sizeChoices.map(([tag, label, size]) =>
     h('button', {
       type: 'button', class: 'note-size-choice',
@@ -572,7 +570,7 @@ function editor(ctx, id) {
     const block = element.closest('h2, h3, h4, blockquote, pre, p, div, li');
     const hasSelectedText = !selection.isCollapsed;
     const states = {
-      heading: ['H2', 'H3', 'H4'].includes(block?.tagName),
+      heading: !!pendingTextSize || ['H2', 'H3', 'H4'].includes(block?.tagName) || !!element.closest('span[data-text-size]'),
       checkbox: !!item && (list?.classList.contains('check-list') || !!item.querySelector(':scope > input[type="checkbox"]')),
       list: !!item && list?.tagName === 'UL' && !list.classList.contains('check-list'),
       'list-numbers': !!item && list?.tagName === 'OL',
