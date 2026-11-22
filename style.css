@@ -264,6 +264,7 @@ main {
   top: 0;
   left: 0;
   bottom: 0;
+  min-height: 100dvh;
   width: min(300px, 82vw);
   background: var(--bg);
   z-index: 40;
