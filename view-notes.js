@@ -151,56 +151,60 @@ function editor(ctx, id) {
     // Les anciennes listes Markdown deviennent également cochables.
   }
 
-  // Indicateur visuel uniquement : le « a » n'entre jamais dans la note.
-  const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true' }, 'a');
+  // Repère purement visuel : ne jamais modifier le DOM éditable ni la sélection.
+  const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true', hidden: true }, 'a');
   let hintFrame = 0;
+  let editingStarted = false;
   const updateCaretHint = () => {
     caretHint.hidden = true;
-    if (document.activeElement !== editable) return;
+    if (!editingStarted || document.activeElement !== editable) return;
     const selection = window.getSelection();
     if (!selection?.rangeCount || !selection.isCollapsed || !editable.contains(selection.anchorNode)) return;
-    // Mesurer la position réelle du curseur avec une sonde temporaire.
-    // Les rectangles d'un Range vide sont souvent incorrects sur Safari iOS.
     const range = selection.getRangeAt(0).cloneRange();
-    const marker = document.createElement('span');
-    marker.textContent = '\u200b';
-    marker.style.cssText = 'display:inline-block;width:0;height:1em;overflow:hidden;pointer-events:none;vertical-align:baseline';
-    range.insertNode(marker);
-    const rect = marker.getBoundingClientRect();
-    const restored = document.createRange();
-    restored.setStartBefore(marker);
-    restored.collapse(true);
-    marker.remove();
-    selection.removeAllRanges();
-    selection.addRange(restored);
-    if (!rect.height) return;
+    let rect = range.getClientRects()[0];
+    if (!rect?.height) rect = range.getBoundingClientRect();
+    // Pour une ligne vide, utiliser la boîte de la ligne, sans insérer de noeud.
     const node = selection.anchorNode;
-    const element = node.nodeType === 1 ? node : node.parentElement;
+    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    if (!rect?.height) {
+      const line = element.closest('li, p, div, h2, h3, h4') || editable;
+      const bounds = line.getBoundingClientRect();
+      const style = getComputedStyle(line);
+      const left = bounds.left + (parseFloat(style.paddingLeft) || 0);
+      rect = { left, top: bounds.top, height: parseFloat(style.lineHeight) || parseFloat(style.fontSize) || 20 };
+    }
+    if (!rect?.height) return;
     const style = getComputedStyle(element);
+    const bold = document.queryCommandState('bold');
+    const italic = document.queryCommandState('italic');
+    const underline = document.queryCommandState('underline');
     caretHint.textContent = style.textTransform === 'uppercase' ? 'A' : 'a';
-    caretHint.style.left = Math.round(rect.left + 3) + 'px';
+    caretHint.style.left = Math.round(rect.left + 2) + 'px';
     caretHint.style.top = Math.round(rect.top) + 'px';
     caretHint.style.fontFamily = style.fontFamily;
     caretHint.style.fontSize = style.fontSize;
     caretHint.style.lineHeight = style.lineHeight;
-    caretHint.style.fontWeight = document.queryCommandState('bold') ? '700' : style.fontWeight;
-    caretHint.style.fontStyle = document.queryCommandState('italic') ? 'italic' : style.fontStyle;
-    caretHint.style.textDecoration = document.queryCommandState('underline') ? 'underline' : style.textDecorationLine;
+    caretHint.style.fontWeight = bold ? '700' : style.fontWeight;
+    caretHint.style.fontStyle = italic ? 'italic' : style.fontStyle;
+    caretHint.style.textDecoration = underline ? 'underline' : style.textDecorationLine;
     caretHint.hidden = false;
   };
   const scheduleCaretHint = () => {
     cancelAnimationFrame(hintFrame);
     hintFrame = requestAnimationFrame(updateCaretHint);
   };
-  // Visible dès l'entrée en édition et tant que le champ garde le focus,
-  // même si l'utilisateur cesse de taper. Masqué dès qu'il quitte le champ.
-  editable.addEventListener('input', scheduleCaretHint);
+  const beginEditing = () => { editingStarted = true; scheduleCaretHint(); };
+  editable.addEventListener('pointerdown', beginEditing);
+  editable.addEventListener('keydown', beginEditing);
+  editable.addEventListener('input', beginEditing);
   editable.addEventListener('focus', scheduleCaretHint);
-  editable.addEventListener('blur', () => { caretHint.hidden = true; });
+  editable.addEventListener('blur', () => { editingStarted = false; caretHint.hidden = true; });
   editable.addEventListener('keyup', scheduleCaretHint);
   editable.addEventListener('pointerup', scheduleCaretHint);
   document.addEventListener('selectionchange', scheduleCaretHint);
   window.addEventListener('scroll', scheduleCaretHint, true);
+  window.visualViewport?.addEventListener('scroll', scheduleCaretHint);
+  window.visualViewport?.addEventListener('resize', scheduleCaretHint);
   const toolbar = h('div', { class: 'toolbar note-keyboard-toolbar' });
   editable.addEventListener('change', (e) => {
     if (e.target.matches('input[type="checkbox"]')) {
@@ -299,6 +303,7 @@ function editor(ctx, id) {
     if (selection?.rangeCount && editable.contains(selection.anchorNode)) savedRange = selection.getRangeAt(0).cloneRange();
   };
   const format = (command, value) => {
+    editingStarted = true;
     editable.focus({ preventScroll: true });
     if (savedRange) {
       const sel = window.getSelection();
@@ -478,6 +483,8 @@ function editor(ctx, id) {
     cancelAnimationFrame(hintFrame);
     document.removeEventListener('selectionchange', scheduleCaretHint);
     window.removeEventListener('scroll', scheduleCaretHint, true);
+    window.visualViewport?.removeEventListener('scroll', scheduleCaretHint);
+    window.visualViewport?.removeEventListener('resize', scheduleCaretHint);
     window.visualViewport?.removeEventListener('resize', positionToolbar);
     window.visualViewport?.removeEventListener('scroll', positionToolbar);
     window.removeEventListener('resize', positionToolbar);
