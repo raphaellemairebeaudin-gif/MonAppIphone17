@@ -169,6 +169,16 @@ function editor(ctx, id) {
     // Pour une ligne vide, utiliser la boîte de la ligne, sans insérer de noeud.
     const node = selection.anchorNode;
     const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    // Si une lettre suit immédiatement le curseur sur la même ligne,
+    // l'utilisateur modifie du texte existant : masquer le repère clignotant.
+    // Lire le texte sans toucher au DOM éditable ni à la sélection.
+    const lineBlock = element?.closest('li, p, div, h2, h3, h4, blockquote, pre') || editable;
+    const afterCaret = document.createRange();
+    afterCaret.selectNodeContents(lineBlock);
+    try {
+      afterCaret.setStart(range.startContainer, range.startOffset);
+      if (/^\p{L}/u.test(afterCaret.toString())) return;
+    } catch (_) { /* Le curseur peut être déplacé pendant un rendu iOS. */ }
     if (!rect?.height) {
       const line = element.closest('li, p, div, h2, h3, h4') || editable;
       const bounds = line.getBoundingClientRect();
