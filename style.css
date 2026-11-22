@@ -742,7 +742,8 @@ h3.sec {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--note-keyboard-offset, 0px) + env(safe-area-inset-bottom, 0px));
+  top: calc(100dvh - 54px - env(safe-area-inset-bottom, 0px));
+  bottom: auto;
   z-index: 25;
   display: flex;
   gap: 2px;
@@ -754,7 +755,6 @@ h3.sec {
 }
 
 .toolbar.keyboard-visible {
-  bottom: var(--note-keyboard-offset, 0px);
   padding-bottom: 4px;
 }
 
