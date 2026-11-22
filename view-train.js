@@ -86,7 +86,7 @@ export function render(ctx) {
                 h('div', { style: { fontSize: '18px', fontWeight: 600 } }, todayRoutine.name),
                 h('div', { class: 's' }, exCount ? plur(exCount, 'exercice') : 'Séance libre')),
               h('span', { class: 'pill', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--text)', color: 'var(--bg)' } },
-                icon('player-play'), 'Démarrer'))
+                icon('player-play'), 'Démarrer')))
         );
       } else if (hasActivePlan) {
         sections.push(
@@ -227,6 +227,7 @@ function buildExercisePicker(onSelect) {
       }
     },
   });
+
   const listBox = h('div', {
     style: {
       maxHeight: '190px',
@@ -310,6 +311,7 @@ function buildExercisePicker(onSelect) {
         );
       });
     }
+
     listBox.replaceChildren(...items);
   }
 
@@ -334,6 +336,7 @@ async function ensureExercisesInLibrary(exercises) {
 function workoutSheet(existing, opts = {}) {
   const now = today();
   let d;
+
   if (opts.initialData) {
     d = JSON.parse(JSON.stringify(opts.initialData));
   } else if (existing) {
@@ -345,8 +348,10 @@ function workoutSheet(existing, opts = {}) {
   } else {
     d = { name: '', date: now, planned: false, exercises: [] };
   }
+
   d.exercises = d.exercises || [];
   let isPlanned = Boolean(d.planned || (d.date || '') > now);
+
   const title = opts.startNow
     ? 'Démarrer la séance'
     : existing
@@ -360,6 +365,7 @@ function workoutSheet(existing, opts = {}) {
       placeholder: 'Pectoraux et triceps',
       oninput: () => { d.name = name.value; },
     });
+
     const date = h('input', {
       type: 'date',
       value: d.date,
@@ -374,6 +380,7 @@ function workoutSheet(existing, opts = {}) {
         }
       },
     });
+
     const makeSeg = () =>
       seg([['done', 'Séance effectuée'], ['plan', 'Prévoir pour plus tard']], isPlanned ? 'plan' : 'done', (v) => {
         isPlanned = v === 'plan';
@@ -385,8 +392,10 @@ function workoutSheet(existing, opts = {}) {
           d.date = date.value;
         }
       });
+
     const modeWrap = h('div', {}, makeSeg());
     const exBox = h('div');
+
     const picker = buildExercisePicker((exName) => {
       const prev = lastExerciseSets(exName);
       d.exercises.push({
@@ -434,21 +443,26 @@ function workoutSheet(existing, opts = {}) {
       const n = d.name.trim();
       if (!n) { err.textContent = 'Donne un nom à l’entraînement.'; return; }
       if (!date.value) { err.textContent = 'Choisis une date.'; return; }
+
       d.name = n;
       d.date = date.value;
       d.planned = Boolean(isPlanned || d.date > today());
+
       d.exercises.forEach((ex) =>
         ex.sets.forEach((s) => {
           s.reps = String(num(s.reps) || '');
           s.weight = String(num(s.weight) || '');
         })
       );
+
       try {
         if (existing) await db.update(existing.id, d);
         else await db.add('workout', d);
         await ensureExercisesInLibrary(d.exercises);
         close();
-      } catch (e) { err.textContent = errMsg(e); }
+      } catch (e) {
+        err.textContent = errMsg(e);
+      }
     }
 
     drawEx();
@@ -467,7 +481,12 @@ function workoutSheet(existing, opts = {}) {
           type: 'button',
           onclick: async () => {
             if (!confirm('Supprimer cet entraînement ?')) return;
-            try { await db.remove(existing.id); close(); } catch (e) { toast(errMsg(e)); }
+            try {
+              await db.remove(existing.id);
+              close();
+            } catch (e) {
+              toast(errMsg(e));
+            }
           },
         }, 'Supprimer'),
         h('button', { class: 'btn primary', type: 'button', onclick: save },
@@ -478,6 +497,7 @@ function workoutSheet(existing, opts = {}) {
 function weekPlanSheet() {
   sheet('Plan de la semaine', (close) => {
     const body = h('div');
+
     function drawDays() {
       const { days } = getPlan();
       body.replaceChildren(
@@ -486,6 +506,7 @@ function weekPlanSheet() {
         ...DAYS.map((day) => {
           const item = days[String(day.idx)];
           const exCount = item && item.exercises ? item.exercises.length : 0;
+
           return row(
             day.label,
             item && item.name
@@ -499,6 +520,7 @@ function weekPlanSheet() {
           h('button', { class: 'btn primary', type: 'button', onclick: close }, 'Terminer'))
       );
     }
+
     drawDays();
     return body;
   });
@@ -510,6 +532,7 @@ function dayPlanSheet(day, onSaved) {
   const d = existing
     ? JSON.parse(JSON.stringify(existing))
     : { name: '', exercises: [] };
+
   d.exercises = d.exercises || [];
 
   sheet(`Programme · ${day.label}`, (close) => {
@@ -519,7 +542,9 @@ function dayPlanSheet(day, onSaved) {
       placeholder: 'Ex. Pectoraux / Triceps, Jambes…',
       oninput: () => { d.name = name.value; },
     });
+
     const exBox = h('div');
+
     const picker = buildExercisePicker((exName) => {
       d.exercises.push({
         name: exName,
@@ -568,6 +593,7 @@ function dayPlanSheet(day, onSaved) {
         err.textContent = 'Donne un nom à la séance de ce jour.';
         return;
       }
+
       d.name = n;
       d.exercises.forEach((ex) =>
         ex.sets.forEach((s) => {
@@ -575,15 +601,19 @@ function dayPlanSheet(day, onSaved) {
           s.weight = String(num(s.weight) || '');
         })
       );
+
       try {
         const nextDays = { ...getPlan().days };
         if (!d.name) delete nextDays[String(day.idx)];
         else nextDays[String(day.idx)] = d;
+
         await savePlan(nextDays);
         await ensureExercisesInLibrary(d.exercises);
         if (onSaved) onSaved();
         close();
-      } catch (e) { err.textContent = errMsg(e); }
+      } catch (e) {
+        err.textContent = errMsg(e);
+      }
     }
 
     drawEx();
@@ -605,7 +635,9 @@ function dayPlanSheet(day, onSaved) {
               await savePlan(nextDays);
               if (onSaved) onSaved();
               close();
-            } catch (e) { toast(errMsg(e)); }
+            } catch (e) {
+              toast(errMsg(e));
+            }
           },
         }, 'Jour de repos'),
         h('button', { class: 'btn primary', type: 'button', onclick: saveDay }, 'Enregistrer')));
