@@ -252,7 +252,7 @@ main {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.5);
+  background: transparent;
   opacity: 0;
   pointer-events: none;
   transition: opacity .25s;
@@ -278,35 +278,8 @@ main {
   overscroll-behavior: contain;
 }
 
-/* Prolonger visuellement le menu dans la zone inférieure iOS,
-   sans déplacer ses éléments interactifs. */
-.drawer::before {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  height: 180px;
-  background: var(--bg);
-  pointer-events: none;
-}
-
-.overlay::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  height: 180px;
-  background: rgba(0,0,0,.5);
-  pointer-events: none;
-}
-
-/* iOS affiche sa zone inférieure avec le fond de la PWA.
-   Ne pas assombrir seulement la partie visible de l'écran :
-   cela créait la bande horizontale au bas du menu. */
 .menu-open .overlay {
-  opacity: 0;
+  opacity: 1;
   pointer-events: auto;
 }
 
@@ -959,3 +932,8 @@ hr {
 [hidden] {
   display: none !important;
 }
+
+/* Fond uniforme jusqu'au bord inférieur de la PWA iOS. */
+html, body, #app, .drawer { background-color: var(--bg); }
+.drawer { box-shadow: none !important; }
+.overlay { background: transparent !important; }
