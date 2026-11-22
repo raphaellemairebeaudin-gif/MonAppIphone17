@@ -20,13 +20,13 @@ const tomorrow = () => {
 };
 
 function getPlan() {
-  const row = db.all('plan').at(0);
-  return { row, days: (row && row.data && row.data.days) || {} };
+  const [planRow] = db.all('plan');
+  return { row: planRow, days: (planRow && planRow.data && planRow.data.days) || {} };
 }
 
 async function savePlan(days) {
-  const { row } = getPlan();
-  if (row) return db.update(row.id, { days });
+  const { row: planRow } = getPlan();
+  if (planRow) return db.update(planRow.id, { days });
   return db.add('plan', { days });
 }
 
@@ -46,118 +46,122 @@ export function render(ctx) {
   ctx.main.append(body);
 
   function draw() {
-    const now = today();
-    const dow = new Date().getDay();
-    const todayInfo = DAYS.find((d) => d.idx === dow);
-    const { days } = getPlan();
-    const todayRoutine = days[String(dow)];
-    const hasActivePlan = Object.values(days).some((d) => d && d.name);
+    try {
+      const now = today();
+      const dow = new Date().getDay();
+      const todayInfo = DAYS.find((d) => d.idx === dow);
+      const { days } = getPlan();
+      const todayRoutine = days[String(dow)];
+      const hasActivePlan = Object.values(days).some((d) => d && d.name);
 
-    const allWorkouts = db.all('workout');
-    const upcoming = allWorkouts
-      .filter((w) => w.data.planned || (w.data.date || '') > now)
-      .sort((a, b) => (a.data.date || '').localeCompare(b.data.date || '') || a.created_at.localeCompare(b.created_at));
+      const allWorkouts = db.all('workout');
+      const upcoming = allWorkouts
+        .filter((w) => w.data.planned || (w.data.date || '') > now)
+        .sort((a, b) => (a.data.date || '').localeCompare(b.data.date || '') || (a.created_at || '').localeCompare(b.created_at || ''));
 
-    const historyList = allWorkouts
-      .filter((w) => !w.data.planned && (w.data.date || '') <= now)
-      .sort((a, b) => (b.data.date || '').localeCompare(a.data.date || '') || b.created_at.localeCompare(a.created_at));
+      const historyList = allWorkouts
+        .filter((w) => !w.data.planned && (w.data.date || '') <= now)
+        .sort((a, b) => (b.data.date || '').localeCompare(a.data.date || '') || (b.created_at || '').localeCompare(a.created_at || ''));
 
-    const sections = [];
+      const sections = [];
 
-    if (todayRoutine && todayRoutine.name) {
-      const exCount = (todayRoutine.exercises || []).length;
-      sections.push(
-        h('div', {
-          class: 'card row tap',
-          style: { display: 'block', marginTop: '6px' },
-          onclick: () => startFromTemplate(todayRoutine),
-        },
-          h('div', { class: 'lbl' },
-            h('span', { class: 'pos', style: { fontWeight: 600 } }, `Programme · ${todayInfo.label}`),
-            h('button', {
-              class: 'link',
-              type: 'button',
-              style: { padding: 0, fontSize: '12px' },
-              onclick: (e) => { e.stopPropagation(); weekPlanSheet(); },
-            }, 'Modifier la semaine')),
-          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '6px' } },
-            h('div', { class: 'grow' },
-              h('div', { style: { fontSize: '18px', fontWeight: 600 } }, todayRoutine.name),
-              h('div', { class: 's' }, exCount ? plur(exCount, 'exercice') : 'Séance libre')),
-            h('span', { class: 'pill', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--text)', color: 'var(--bg)' } },
-              icon('player-play'), 'Démarrer')))
-      );
-    } else if (hasActivePlan) {
-      sections.push(
-        h('div', {
-          class: 'card row tap',
-          style: { display: 'block', marginTop: '6px' },
-          onclick: () => weekPlanSheet(),
-        },
-          h('div', { class: 'lbl' },
-            h('span', {}, `Programme · ${todayInfo.label}`),
-            h('span', { class: 'pos' }, 'Voir la semaine')),
-          h('div', { style: { fontSize: '16px', fontWeight: 500, marginTop: '4px' } }, 'Jour de repos prévu'))
-      );
-    } else {
-      sections.push(
-        h('div', {
-          class: 'card row tap',
-          style: { display: 'block', marginTop: '6px' },
-          onclick: () => weekPlanSheet(),
-        },
-          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' } },
-            h('div', { class: 'grow' },
-              h('div', { style: { fontSize: '16px', fontWeight: 600 } }, 'Plan d’entraînement hebdomadaire'),
-              h('div', { class: 's' }, 'Organise tes jours de la semaine, ils recommencent chaque semaine.')),
-            icon('chevron-right')))
-      );
+      if (todayRoutine && todayRoutine.name) {
+        const exCount = (todayRoutine.exercises || []).length;
+        sections.push(
+          h('div', {
+            class: 'card row tap',
+            style: { display: 'block', marginTop: '6px' },
+            onclick: () => startFromTemplate(todayRoutine),
+          },
+            h('div', { class: 'lbl' },
+              h('span', { class: 'pos', style: { fontWeight: 600 } }, `Programme · ${todayInfo.label}`),
+              h('button', {
+                class: 'link',
+                type: 'button',
+                style: { padding: 0, fontSize: '12px' },
+                onclick: (e) => { e.stopPropagation(); weekPlanSheet(); },
+              }, 'Modifier la semaine')),
+            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '6px' } },
+              h('div', { class: 'grow' },
+                h('div', { style: { fontSize: '18px', fontWeight: 600 } }, todayRoutine.name),
+                h('div', { class: 's' }, exCount ? plur(exCount, 'exercice') : 'Séance libre')),
+              h('span', { class: 'pill', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--text)', color: 'var(--bg)' } },
+                icon('player-play'), 'Démarrer')))
+        );
+      } else if (hasActivePlan) {
+        sections.push(
+          h('div', {
+            class: 'card row tap',
+            style: { display: 'block', marginTop: '6px' },
+            onclick: () => weekPlanSheet(),
+          },
+            h('div', { class: 'lbl' },
+              h('span', {}, `Programme · ${todayInfo.label}`),
+              h('span', { class: 'pos' }, 'Voir la semaine')),
+            h('div', { style: { fontSize: '16px', fontWeight: 500, marginTop: '4px' } }, 'Jour de repos prévu'))
+        );
+      } else {
+        sections.push(
+          h('div', {
+            class: 'card row tap',
+            style: { display: 'block', marginTop: '6px' },
+            onclick: () => weekPlanSheet(),
+          },
+            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' } },
+              h('div', { class: 'grow' },
+                h('div', { style: { fontSize: '16px', fontWeight: 600 } }, 'Plan d’entraînement hebdomadaire'),
+                h('div', { class: 's' }, 'Organise tes jours de la semaine, ils recommencent chaque semaine.')),
+              icon('chevron-right')))
+        );
+      }
+
+      if (upcoming.length) {
+        sections.push(
+          h('div', {},
+            h('h3', { class: 'sec' }, 'À venir'),
+            upcoming.map((w) => {
+              const exs = w.data.exercises || [];
+              const startBtn = h('button', {
+                class: 'pill',
+                type: 'button',
+                onclick: (e) => {
+                  e.stopPropagation();
+                  workoutSheet(w, { startNow: true });
+                },
+              }, 'Démarrer');
+              return row(
+                w.data.name || 'Sans titre',
+                `${fmtDate(w.data.date)} · ${plur(exs.length, 'exercice')}`,
+                startBtn,
+                () => workoutSheet(w)
+              );
+            }))
+        );
+      }
+
+      if (historyList.length) {
+        sections.push(
+          h('div', {},
+            h('h3', { class: 'sec' }, 'Historique'),
+            historyList.map((w) => {
+              const exs = w.data.exercises || [];
+              const sets = exs.reduce((n, e) => n + (e.sets || []).length, 0);
+              return row(
+                w.data.name || 'Sans titre',
+                `${fmtDate(w.data.date)} · ${plur(exs.length, 'exercice')} · ${plur(sets, 'série')}`,
+                null,
+                () => workoutSheet(w)
+              );
+            }))
+        );
+      } else if (!upcoming.length) {
+        sections.push(empty('Aucun entraînement', 'Touche + pour enregistrer une séance ou en prévoir une pour plus tard.'));
+      }
+
+      body.replaceChildren(...sections);
+    } catch (err) {
+      body.replaceChildren(h('p', { class: 'err' }, 'Erreur affichage : ' + (err && err.message ? err.message : String(err))));
     }
-
-    if (upcoming.length) {
-      sections.push(
-        h('div', {},
-          h('h3', { class: 'sec' }, 'À venir'),
-          upcoming.map((w) => {
-            const exs = w.data.exercises || [];
-            const startBtn = h('button', {
-              class: 'pill',
-              type: 'button',
-              onclick: (e) => {
-                e.stopPropagation();
-                workoutSheet(w, { startNow: true });
-              },
-            }, 'Démarrer');
-            return row(
-              w.data.name || 'Sans titre',
-              `${fmtDate(w.data.date)} · ${plur(exs.length, 'exercice')}`,
-              startBtn,
-              () => workoutSheet(w)
-            );
-          }))
-      );
-    }
-
-    if (historyList.length) {
-      sections.push(
-        h('div', {},
-          h('h3', { class: 'sec' }, 'Historique'),
-          historyList.map((w) => {
-            const exs = w.data.exercises || [];
-            const sets = exs.reduce((n, e) => n + (e.sets || []).length, 0);
-            return row(
-              w.data.name || 'Sans titre',
-              `${fmtDate(w.data.date)} · ${plur(exs.length, 'exercice')} · ${plur(sets, 'série')}`,
-              null,
-              () => workoutSheet(w)
-            );
-          }))
-      );
-    } else if (!upcoming.length) {
-      sections.push(empty('Aucun entraînement', 'Touche + pour enregistrer une séance ou en prévoir une pour plus tard.'));
-    }
-
-    body.replaceChildren(...sections);
   }
 
   ctx.onData(draw);
@@ -190,8 +194,8 @@ function lastPerformance(name) {
     if (ex && ex.sets && ex.sets.length) {
       const s = ex.sets.at(-1);
       const parts = [];
-      if (s.reps) parts.push(s.reps + ' reps');
-      if (s.weight) parts.push(s.weight + ' kg');
+      if (s && s.reps) parts.push(s.reps + ' reps');
+      if (s && s.weight) parts.push(s.weight + ' kg');
       if (parts.length) return 'Dernier : ' + parts.join(' × ');
     }
   }
@@ -280,25 +284,24 @@ function buildExercisePicker(onSelect) {
             e.stopPropagation();
             if (!confirm(`Retirer « ${ex.data.name} » de ta liste d’exercices ?`)) return;
             try {
-              await db.remove(ex.id);
-              drawList();
-            } catch (err) {
-              toast(errMsg(err));
-            }
-          },
-        }, icon('trash'));
-
-        items.push(
-          h('div', {
-            class: 'row tap',
-            style: { padding: '10px 0' },
-            onclick: () => {
-              onSelect(ex.data.name);
-              searchIn.value = '';
-              drawList();
-            },
-          },
-          h('div', { class: 'grow' },
+                await db.remove(ex.id);
+drawList();
+} catch (err) {
+toast(errMsg(err));
+}
+},
+}, icon('trash'));
+items.push(
+h('div', {
+class: 'row tap',
+style: { padding: '10px 0' },
+onclick: () => {
+onSelect(ex.data.name);
+searchIn.value = '';
+drawList();
+},
+},
+h('div', { class: 'grow' },
 h('div', { class: 't' }, ex.data.name),
 last ? h('div', { class: 's' }, last) : null),
 h('span', { class: 'pos', style: { fontSize: '13px', fontWeight: 500 } }, '+ Ajouter'),

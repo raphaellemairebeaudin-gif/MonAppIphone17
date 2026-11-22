@@ -11,6 +11,12 @@ const views = { train, notes, budget, supp, profile, settings };
 const NAV = ['train', 'notes', 'budget', 'supp'];
 const root = document.getElementById('app');
 
+window.addEventListener('error', (e) => {
+  if (root && !root.children.length) {
+    root.replaceChildren(h('p', { class: 'err', style: { padding: '24px' } }, 'Erreur : ' + (e.message || 'inconnue')));
+  }
+});
+
 applyTheme();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
@@ -49,7 +55,7 @@ document.addEventListener('touchstart', (e) => {
     touchStartX = null;
     return;
   }
-  const touch = e.touches.item(0);
+  const [touch] = e.touches;
   if (!touch) return;
   touchStartX = touch.clientX;
   touchStartY = touch.clientY;
@@ -58,7 +64,7 @@ document.addEventListener('touchstart', (e) => {
 
 document.addEventListener('touchend', (e) => {
   if (touchStartX === null || !ui || !e.changedTouches.length) return;
-  const touch = e.changedTouches.item(0);
+  const [touch] = e.changedTouches;
   if (!touch) return;
   const dx = touch.clientX - touchStartX;
   const dy = touch.clientY - touchStartY;
@@ -107,7 +113,7 @@ function buildShell() {
 }
 
 function drawDrawer() {
-  const emailPrefix = (session.user.email || '').split('@').at(0) || '';
+  const [emailPrefix = ''] = (session.user.email || '').split('@');
   const name = String(db.getProfile().data.name || emailPrefix || 'Moi');
   const link = (k) => h('a', { href: '#/' + k, class: 'nav' + (k === current ? ' on' : ''), onclick: () => setMenu(false) },
     icon(views[k].meta.icon), views[k].meta.label);
