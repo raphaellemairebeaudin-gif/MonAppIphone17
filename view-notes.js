@@ -506,6 +506,16 @@ function editor(ctx, id) {
     ['div', 'Normal', '16 px'],
   ];
   const closeSizeMenu = () => { sizeMenu.hidden = true; };
+  const selectionTextSizes = (selection = window.getSelection()) => {
+    if (!selection?.rangeCount || selection.isCollapsed) return [];
+    const range = selection.getRangeAt(0);
+    const root = range.commonAncestorContainer;
+    const walker = document.createTreeWalker(root.nodeType === Node.TEXT_NODE ? root.parentNode : root, NodeFilter.SHOW_TEXT);
+    const nodes = root.nodeType === Node.TEXT_NODE ? [root] : [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    return nodes.filter(node => node.textContent.trim() && range.intersectsNode(node))
+      .map(node => Math.round(parseFloat(getComputedStyle(node.parentElement).fontSize) || 16));
+  };
   let pendingTextSize = null;
   // La taille est appliquée aux prochains caractères, même au milieu d'une ligne.
   // Les caractères déjà écrits ne sont jamais reformatés.
@@ -517,7 +527,28 @@ function editor(ctx, id) {
       selection.removeAllRanges();
       selection.addRange(savedRange);
     }
-    pendingTextSize = { h2: '24', h3: '20', h4: '17', div: '16' }[tag];
+    const chosenSize = { h2: '24', h3: '20', h4: '17', div: '16' }[tag];
+    const selection = window.getSelection();
+    if (selection?.rangeCount && !selection.isCollapsed && editable.contains(selection.anchorNode)) {
+      const range = selection.getRangeAt(0);
+      // Sur une sélection, changer la taille du texte existant.
+      // Sur un curseur simple, seule la prochaine saisie est concernée.
+      const fragment = range.extractContents();
+      const span = document.createElement('span');
+      span.dataset.textSize = chosenSize;
+      span.append(fragment);
+      range.insertNode(span);
+      const restored = document.createRange();
+      restored.selectNodeContents(span);
+      selection.removeAllRanges();
+      selection.addRange(restored);
+      rememberSelection();
+      sync();
+      updateToolStates();
+      scheduleCaretHint();
+      return;
+    }
+    pendingTextSize = chosenSize;
     rememberSelection();
     updateToolStates();
     scheduleCaretHint();
@@ -545,7 +576,7 @@ function editor(ctx, id) {
   });
   sizeMenu.append(...sizeChoices.map(([tag, label, size]) =>
     h('button', {
-      type: 'button', class: 'note-size-choice',
+      type: 'button', class: 'note-size-choice', 'data-size': ({h2:'24',h3:'20',h4:'17',div:'16'})[tag],
       onpointerdown: (e) => { rememberSelection(); e.preventDefault(); },
       onmousedown: (e) => e.preventDefault(),
       onclick: () => applyTextSize(tag),
@@ -591,7 +622,9 @@ function editor(ctx, id) {
     const block = element.closest('h2, h3, h4, blockquote, pre, p, div, li');
     const hasSelectedText = !selection.isCollapsed;
     const states = {
-      heading: !!pendingTextSize || ['H2', 'H3', 'H4'].includes(block?.tagName) || !!element.closest('span[data-text-size]'),
+      heading: hasSelectedText
+        ? selectionTextSizes(selection).some(size => size !== 16)
+        : (!!pendingTextSize && pendingTextSize !== '16') || ['H2', 'H3', 'H4'].includes(block?.tagName) || !!element.closest('span[data-text-size]:not([data-text-size="16"])'),
       checkbox: !!item && (list?.classList.contains('check-list') || !!item.querySelector(':scope > input[type="checkbox"]')),
       list: !!item && list?.tagName === 'UL' && !list.classList.contains('check-list'),
       'list-numbers': !!item && list?.tagName === 'OL',
@@ -601,6 +634,13 @@ function editor(ctx, id) {
       code: block?.tagName === 'PRE',
       minus: false,
     };
+    for (const choice of sizeMenu.querySelectorAll('.note-size-choice')) {
+      const size = choice.dataset.size;
+      const sizes = hasSelectedText ? selectionTextSizes(selection) : [];
+      const active = hasSelectedText ? sizes.length > 0 && sizes.every(value => String(value) === size) : (pendingTextSize ? pendingTextSize === size : Math.round(parseFloat(getComputedStyle(element).fontSize)) === Number(size));
+      choice.classList.toggle('is-active', active);
+      choice.setAttribute('aria-pressed', String(active));
+    }
     for (const [name, button] of toolButtons) {
       const active = !!states[name];
       button.classList.toggle('is-active', active);
