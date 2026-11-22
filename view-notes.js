@@ -121,7 +121,23 @@ function editor(ctx, id) {
     },
   });
   const preview = h('div', { class: 'md' });
-  const toolbar = h('div', { class: 'toolbar' });
+  const toolbar = h('div', { class: 'toolbar note-keyboard-toolbar' });
+
+  // Aligne la barre d'outils sur le haut du clavier iOS quand il est visible.
+  const positionToolbar = () => {
+    const viewport = window.visualViewport;
+    const covered = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
+    const keyboardOpen = covered > 100 && (document.activeElement === ta || document.activeElement === titleIn);
+    toolbar.style.setProperty('--note-keyboard-offset', keyboardOpen ? covered + 'px' : '0px');
+    toolbar.classList.toggle('keyboard-visible', keyboardOpen);
+  };
+  window.visualViewport?.addEventListener('resize', positionToolbar);
+  window.visualViewport?.addEventListener('scroll', positionToolbar);
+  window.addEventListener('resize', positionToolbar);
+  ta.addEventListener('focus', positionToolbar);
+  ta.addEventListener('blur', () => requestAnimationFrame(positionToolbar));
+  titleIn.addEventListener('focus', positionToolbar);
+  titleIn.addEventListener('blur', () => requestAnimationFrame(positionToolbar));
 
   const autosize = () => { ta.style.height = 'auto'; ta.style.height = Math.max(ta.scrollHeight, window.innerHeight * 0.5) + 'px'; };
   const sync = () => { data.body = ta.value; autosize(); changed(); };
@@ -209,6 +225,7 @@ function editor(ctx, id) {
     toolbar.hidden = !editing;
     preview.hidden = editing;
     if (editing) autosize(); else drawPreview();
+    positionToolbar();
     drawActions();
   }
 
@@ -225,7 +242,12 @@ function editor(ctx, id) {
   }
 
   ctx.main.append(titleIn, toolbar, ta, preview, status);
-  ctx.onLeave(() => { if (timer) flush(); });
+  ctx.onLeave(() => {
+    if (timer) flush();
+    window.visualViewport?.removeEventListener('resize', positionToolbar);
+    window.visualViewport?.removeEventListener('scroll', positionToolbar);
+    window.removeEventListener('resize', positionToolbar);
+  });
   drawMode();
   if (!row) setTimeout(() => titleIn.focus(), 50);
 }
