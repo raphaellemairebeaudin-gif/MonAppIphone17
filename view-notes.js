@@ -3,6 +3,7 @@ import { h, icon, row, empty, fmtDate, toast, errMsg } from './ui.js';
 
 export const meta = { label: 'Notes', icon: 'notes' };
 
+const RICH = 'RICH_HTML:';
 const PREFIX_RE = /^(#{1,3} |- \[[ xX]\] |[-*] |\d+\. |> )/;
 let query = '';
 
@@ -28,7 +29,8 @@ export function render(ctx, param) {
       return;
     }
     body.replaceChildren(...list.map((n) => {
-      const first = (n.data.body || '').split('\n').find((l) => l.trim()) || '';
+      const raw = n.data.body || '';
+      const first = raw.startsWith(RICH) ? (new DOMParser().parseFromString(raw.slice(RICH.length), 'text/html').body.textContent || '') : (raw.split('\n').find((l) => l.trim()) || '');
       return row(n.data.title || 'Sans titre', first.replace(PREFIX_RE, '').slice(0, 80) || fmtDate(n.updated_at.slice(0, 10)),
         n.data.pinned ? h('span', { class: 'pos' }, icon('pin')) : null,
         () => { location.hash = '#/notes/' + n.id; });
@@ -87,13 +89,13 @@ function renderMd(text, onToggle) {
 }
 
 function editor(ctx, id) {
-  let row = id === 'new' ? null : db.get(id);
-  if (id !== 'new' && !row) { location.hash = '#/notes'; return; }
-  const data = row ? { title: '', body: '', pinned: false, ...row.data } : { title: '', body: '', pinned: false };
-  let mode = row ? 'preview' : 'edit';
+  let record = id === 'new' ? null : db.get(id);
+  if (id !== 'new' && !record) { location.hash = '#/notes'; return; }
+  const data = record ? { title: '', body: '', pinned: false, ...record.data } : { title: '', body: '', pinned: false };
   let timer = null;
   let chain = Promise.resolve();
   let deleted = false;
+  let keyboardFrame = 0;
 
   ctx.setHead('', '', { back: '#/notes' });
   const status = h('span', { class: 'status' });
@@ -101,38 +103,119 @@ function editor(ctx, id) {
     class: 'note-title', placeholder: 'Titre', value: data.title, enterkeyhint: 'next',
     oninput: () => { data.title = titleIn.value; changed(); },
   });
-  const ta = h('textarea', {
-    class: 'note-body', placeholder: 'Écris ici…', value: data.body,
-    oninput: () => { data.body = ta.value; autosize(); changed(); },
-    onkeydown: (e) => {
-      if (e.key !== 'Enter' || e.shiftKey || ta.selectionStart !== ta.selectionEnd) return;
-      const v = ta.value, pos = ta.selectionStart;
-      const ls = v.lastIndexOf('\n', pos - 1) + 1;
-      const line = v.slice(ls, pos);
-      const m = /^(- \[[ xX]\] |[-*] |(\d+)\. |> )/.exec(line);
-      if (!m) return;
+  const editable = h('div', {
+    class: 'note-body rich-editor', contenteditable: 'true', role: 'textbox',
+    'aria-label': 'Contenu de la note', 'aria-multiline': 'true',
+    'data-placeholder': 'Écris ici…',
+    oninput: () => { sync(); },
+    onpaste: (e) => {
       e.preventDefault();
-      if (line.length === m[0].length) { ta.setRangeText('', ls, pos, 'end'); sync(); return; }
-      let next = m[0];
-      if (m[2]) next = (parseInt(m[2], 10) + 1) + '. ';
-      else if (m[0].startsWith('- [')) next = '- [ ] ';
-      ta.setRangeText('\n' + next, pos, pos, 'end');
-      sync();
+      const plain = e.clipboardData?.getData('text/plain') || '';
+      document.execCommand('insertText', false, plain);
     },
   });
-  const preview = h('div', { class: 'md' });
-  const toolbar = h('div', { class: 'toolbar note-keyboard-toolbar' });
 
-  // Le clavier iOS modifie le visualViewport pendant son animation.
-  // Positionner par rapport au bord visible, sans attendre un défilement.
-  let keyboardFrame = 0;
+  // Conserver les anciennes notes Markdown en les convertissant à l'affichage.
+  // Leur contenu n'est remplacé par du HTML que lors d'une modification.
+  if (data.body.startsWith(RICH)) {
+    const parsed = new DOMParser().parseFromString(data.body.slice(RICH.length), 'text/html');
+    const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'P', 'DIV', 'BR', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'H2', 'H3', 'H4', 'CODE', 'PRE', 'HR', 'SPAN']);
+    const clean = (node) => {
+      for (const child of [...node.childNodes]) {
+        if (child.nodeType === Node.COMMENT_NODE) { child.remove(); continue; }
+        if (child.nodeType !== Node.ELEMENT_NODE) continue;
+        if (!allowed.has(child.tagName)) {
+          if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'SVG', 'MATH'].includes(child.tagName)) child.remove();
+          else { clean(child); child.replaceWith(...child.childNodes); }
+          continue;
+        }
+        for (const attr of [...child.attributes]) child.removeAttribute(attr.name);
+        clean(child);
+      }
+    };
+    clean(parsed.body);
+    editable.replaceChildren(...[...parsed.body.childNodes].map(n => document.importNode(n, true)));
+  } else if (data.body) {
+    editable.append(...renderMd(data.body, () => {}));
+    for (const checkbox of editable.querySelectorAll('input[type="checkbox"]')) {
+      checkbox.replaceWith(document.createTextNode(checkbox.checked ? '☑ ' : '☐ '));
+    }
+  }
+
+  const toolbar = h('div', { class: 'toolbar note-keyboard-toolbar' });
+  const sync = () => {
+    data.body = RICH + editable.innerHTML;
+    changed();
+  };
+  function changed() {
+    status.textContent = 'Modification…';
+    clearTimeout(timer);
+    timer = setTimeout(flush, 600);
+  }
+  function flush() {
+    clearTimeout(timer);
+    timer = null;
+    chain = chain.then(persist);
+    return chain;
+  }
+  async function persist() {
+    if (deleted) return;
+    if (!record && !data.title.trim() && !editable.textContent.trim()) { status.textContent = ''; return; }
+    try {
+      if (record) record = await db.update(record.id, { ...data });
+      else {
+        record = await db.add('note', { ...data });
+        history.replaceState(null, '', '#/notes/' + record.id);
+      }
+      status.textContent = 'Enregistré';
+      drawActions();
+    } catch (e) { status.textContent = 'Non enregistré'; toast(errMsg(e)); }
+  }
+
+  // Garder la sélection du texte quand on touche les outils au-dessus du clavier.
+  let savedRange = null;
+  const rememberSelection = () => {
+    const selection = window.getSelection();
+    if (selection?.rangeCount && editable.contains(selection.anchorNode)) savedRange = selection.getRangeAt(0).cloneRange();
+  };
+  const format = (command, value) => {
+    editable.focus({ preventScroll: true });
+    if (savedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+    document.execCommand(command, false, value);
+    rememberSelection();
+    sync();
+  };
+  const tools = [
+    ['heading', 'Titre', () => format('formatBlock', 'h2')],
+    ['checkbox', 'Case à cocher', () => format('insertText', '☐ ')],
+    ['list', 'Liste à puces', () => format('insertUnorderedList')],
+    ['list-numbers', 'Liste numérotée', () => format('insertOrderedList')],
+    ['bold', 'Gras', () => format('bold')],
+    ['italic', 'Italique', () => format('italic')],
+    ['quote', 'Citation', () => format('formatBlock', 'blockquote')],
+    ['code', 'Code', () => format('formatBlock', 'pre')],
+    ['minus', 'Séparateur', () => format('insertHorizontalRule')],
+  ];
+  toolbar.append(...tools.map(([ic, label, fn]) =>
+    h('button', {
+      type: 'button', 'aria-label': label,
+      onpointerdown: (e) => { rememberSelection(); e.preventDefault(); },
+      onmousedown: (e) => e.preventDefault(),
+      onclick: fn,
+    }, icon(ic))));
+  editable.addEventListener('keyup', rememberSelection);
+  editable.addEventListener('mouseup', rememberSelection);
+  document.addEventListener('selectionchange', rememberSelection);
+
   const positionToolbar = () => {
     if (!toolbar.isConnected) return;
-    const viewport = window.visualViewport;
-    const visibleBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
-    const covered = Math.max(0, window.innerHeight - visibleBottom);
-    const focused = document.activeElement === ta || document.activeElement === titleIn;
-    const keyboardOpen = focused && covered > 100;
+    const vp = window.visualViewport;
+    const visibleBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
+    const keyboardOpen = (document.activeElement === editable || document.activeElement === titleIn) && window.innerHeight - visibleBottom > 100;
     toolbar.classList.toggle('keyboard-visible', keyboardOpen);
     toolbar.style.top = Math.max(0, visibleBottom - toolbar.offsetHeight) + 'px';
   };
@@ -148,121 +231,34 @@ function editor(ctx, id) {
   window.visualViewport?.addEventListener('resize', positionToolbar);
   window.visualViewport?.addEventListener('scroll', positionToolbar);
   window.addEventListener('resize', positionToolbar);
-  ta.addEventListener('focus', followKeyboard);
-  ta.addEventListener('blur', followKeyboard);
+  editable.addEventListener('focus', followKeyboard);
+  editable.addEventListener('blur', followKeyboard);
   titleIn.addEventListener('focus', followKeyboard);
   titleIn.addEventListener('blur', followKeyboard);
 
-  const autosize = () => { ta.style.height = 'auto'; ta.style.height = Math.max(ta.scrollHeight, window.innerHeight * 0.5) + 'px'; };
-  const sync = () => { data.body = ta.value; autosize(); changed(); };
-
-  function changed() {
-    status.textContent = 'Modification…';
-    clearTimeout(timer);
-    timer = setTimeout(flush, 600);
-  }
-  function flush() {
-    clearTimeout(timer);
-    timer = null;
-    chain = chain.then(persist);
-    return chain;
-  }
-  async function persist() {
-    if (deleted) return;
-    if (!row && !data.title.trim() && !data.body.trim()) { status.textContent = ''; return; }
-    try {
-      if (row) row = await db.update(row.id, { ...data });
-      else {
-        row = await db.add('note', { ...data });
-        history.replaceState(null, '', '#/notes/' + row.id);
-      }
-      status.textContent = 'Enregistré';
-      drawActions();
-    } catch (e) { status.textContent = 'Non enregistré'; toast(errMsg(e)); }
-  }
-
-  function linePrefix(p) {
-    ta.focus();
-    const v = ta.value;
-    const s = ta.selectionStart, e = ta.selectionEnd;
-    const ls = v.lastIndexOf('\n', s - 1) + 1;
-    let le = v.indexOf('\n', e);
-    if (le < 0) le = v.length;
-    const block = v.slice(ls, le).split('\n');
-    const all = block.every((l) => l.startsWith(p));
-    const nb = block.map((l) => (all ? l.slice(p.length) : p + l.replace(PREFIX_RE, '')));
-    ta.setRangeText(nb.join('\n'), ls, le, 'end');
-    sync();
-  }
-  function wrap(m) {
-    ta.focus();
-    const s = ta.selectionStart, e = ta.selectionEnd;
-    ta.setRangeText(m + ta.value.slice(s, e) + m, s, e, 'end');
-    if (s === e) ta.selectionStart = ta.selectionEnd = s + m.length;
-    sync();
-  }
-  function insert(t) {
-    ta.focus();
-    ta.setRangeText(t, ta.selectionStart, ta.selectionEnd, 'end');
-    sync();
-  }
-
-  const tools = [
-    ['heading', 'Titre', () => linePrefix('# ')],
-    ['checkbox', 'Case à cocher', () => linePrefix('- [ ] ')],
-    ['list', 'Liste à puces', () => linePrefix('- ')],
-    ['list-numbers', 'Liste numérotée', () => linePrefix('1. ')],
-    ['bold', 'Gras', () => wrap('**')],
-    ['italic', 'Italique', () => wrap('*')],
-    ['quote', 'Citation', () => linePrefix('> ')],
-    ['code', 'Code', () => wrap('`')],
-    ['minus', 'Séparateur', () => insert('\n---\n')],
-  ];
-  toolbar.append(...tools.map(([ic, label, fn]) =>
-    h('button', { type: 'button', 'aria-label': label, onmousedown: (e) => e.preventDefault(), onclick: fn }, icon(ic))));
-
-  function drawPreview() {
-    preview.replaceChildren(...renderMd(data.body, (idx) => {
-      const lines = data.body.split('\n');
-      lines[idx] = /\[ \]/.test(lines[idx]) ? lines[idx].replace('[ ]', '[x]') : lines[idx].replace(/\[[xX]\]/, '[ ]');
-      data.body = lines.join('\n');
-      ta.value = data.body;
-      changed();
-      drawPreview();
-    }));
-    if (!data.body.trim()) preview.append(h('p', { class: 'md-p', style: { color: 'var(--sec)' } }, 'Note vide. Touche le crayon pour écrire.'));
-  }
-
-  function drawMode() {
-    const editing = mode === 'edit';
-    ta.hidden = !editing;
-    toolbar.hidden = !editing;
-    preview.hidden = editing;
-    if (editing) autosize(); else drawPreview();
-    positionToolbar();
-    drawActions();
-  }
-
   function drawActions() {
     ctx.setActions([
-      h('button', { class: 'icon-btn', type: 'button', 'aria-label': mode === 'edit' ? 'Aperçu' : 'Modifier', onclick: () => { mode = mode === 'edit' ? 'preview' : 'edit'; drawMode(); } },
-        icon(mode === 'edit' ? 'eye' : 'pencil')),
-      h('button', { class: 'icon-btn' + (data.pinned ? ' on' : ''), type: 'button', 'aria-label': 'Épingler', onclick: () => { data.pinned = !data.pinned; flush(); drawActions(); toast(data.pinned ? 'Note épinglée' : 'Note désépinglée'); } }, icon('pin')),
-      row && h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Supprimer', onclick: async () => {
+      h('button', { class: 'icon-btn' + (data.pinned ? ' on' : ''), type: 'button', 'aria-label': 'Épingler', onclick: () => {
+        data.pinned = !data.pinned; flush(); drawActions(); toast(data.pinned ? 'Note épinglée' : 'Note désépinglée');
+      } }, icon('pin')),
+      record && h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Supprimer', onclick: async () => {
         if (!confirm('Supprimer cette note ?')) return;
-        try { deleted = true; await chain; await db.remove(row.id); location.hash = '#/notes'; } catch (e) { deleted = false; toast(errMsg(e)); }
+        try { deleted = true; clearTimeout(timer); await chain; await db.remove(record.id); location.hash = '#/notes'; }
+        catch (e) { deleted = false; toast(errMsg(e)); }
       } }, icon('trash')),
     ]);
   }
 
-  ctx.main.append(titleIn, toolbar, ta, preview, status);
+  ctx.main.append(titleIn, editable, status, toolbar);
   ctx.onLeave(() => {
     if (timer) flush();
     cancelAnimationFrame(keyboardFrame);
     window.visualViewport?.removeEventListener('resize', positionToolbar);
     window.visualViewport?.removeEventListener('scroll', positionToolbar);
     window.removeEventListener('resize', positionToolbar);
+    document.removeEventListener('selectionchange', rememberSelection);
   });
-  drawMode();
-  if (!row) setTimeout(() => titleIn.focus(), 50);
+  drawActions();
+  followKeyboard();
+  if (!record) setTimeout(() => titleIn.focus(), 50);
 }
