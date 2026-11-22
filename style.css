@@ -965,3 +965,8 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .rich-editor .check-item > input[type="checkbox"], .rich-editor .md-todo > input[type="checkbox"] { position: absolute; left: 0; top: 2px; width: 21px; height: 21px; padding: 0; accent-color: var(--accent); }
 .rich-editor .check-item:has(input:checked), .rich-editor .md-todo:has(input:checked) { color: var(--sec); }
 .rich-editor ol > li, .rich-editor ul:not(.check-list) > li { margin: 4px 0; }
+
+/* Repère de saisie non éditable, synchronisé avec le curseur iOS. */
+.note-caret-hint { position: fixed; z-index: 26; pointer-events: none; user-select: none; -webkit-user-select: none; color: var(--sec); opacity: .65; animation: note-hint-blink 1s steps(1, end) infinite; }
+.note-caret-hint[hidden] { display: none !important; }
+@keyframes note-hint-blink { 0%, 49% { opacity: .65; } 50%, 100% { opacity: 0; } }
