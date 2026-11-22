@@ -475,7 +475,16 @@ function editor(ctx, id) {
     selection.removeAllRanges(); selection.addRange(cursor);
     rememberSelection(); sync();
   };
-  const toggleHeading = () => {
+  const sizeMenu = h('div', { class: 'note-size-menu', hidden: true });
+  const sizeChoices = [
+    ['h2', 'Grand', '24 px'],
+    ['h3', 'Moyen', '20 px'],
+    ['h4', 'Petit titre', '17 px'],
+    ['div', 'Normal', '16 px'],
+  ];
+  const closeSizeMenu = () => { sizeMenu.hidden = true; };
+  const applyTextSize = (tag) => {
+    closeSizeMenu();
     editable.focus({ preventScroll: true });
     if (savedRange) {
       const selection = window.getSelection();
@@ -485,33 +494,55 @@ function editor(ctx, id) {
     const selection = window.getSelection();
     const node = selection?.anchorNode;
     const element = node?.nodeType === 1 ? node : node?.parentElement;
-    const block = element?.closest('h2, h3, h4, p, div, li');
-    const isHeading = block?.tagName === 'H2' && editable.contains(block);
-    // Sans sélection, désactiver H termine le titre sans modifier
-    // les caractères déjà écrits : le curseur continue en texte normal.
-    if (isHeading && selection?.isCollapsed && selection.rangeCount) {
+    const block = element?.closest('h2, h3, h4, p, div');
+    if (block && editable.contains(block) && selection?.isCollapsed && selection.rangeCount) {
+      const current = block.tagName.toLowerCase();
+      if (current === tag) { updateToolStates(); return; }
+      // Scinder au curseur : le texte déjà écrit conserve sa taille.
       const caret = selection.getRangeAt(0).cloneRange();
-      const rest = document.createRange();
-      rest.selectNodeContents(block);
-      rest.setStart(caret.startContainer, caret.startOffset);
-      const trailing = rest.extractContents();
-      const paragraph = document.createElement('div');
-      paragraph.append(trailing);
-      if (!paragraph.textContent && !paragraph.querySelector('br')) paragraph.append(document.createElement('br'));
-      block.after(paragraph);
-      if (!block.textContent.trim()) block.remove();
-      const next = document.createRange();
-      next.selectNodeContents(paragraph);
-      next.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(next);
-      resetHintFormat();
-      rememberSelection();
-      sync();
-      scheduleCaretHint();
-      return;
+      const before = document.createRange();
+      before.selectNodeContents(block);
+      before.setEnd(caret.startContainer, caret.startOffset);
+      const hasBefore = !!before.toString().trim();
+      if (hasBefore) {
+        const rest = document.createRange();
+        rest.selectNodeContents(block);
+        rest.setStart(caret.startContainer, caret.startOffset);
+        const trailing = rest.extractContents();
+        const nextBlock = document.createElement(tag);
+        nextBlock.append(trailing);
+        if (!nextBlock.textContent && !nextBlock.querySelector('br')) nextBlock.append(document.createElement('br'));
+        block.after(nextBlock);
+        const next = document.createRange();
+        next.selectNodeContents(nextBlock); next.collapse(true);
+        selection.removeAllRanges(); selection.addRange(next);
+        resetHintFormat();
+        rememberSelection(); sync(); scheduleCaretHint(); updateToolStates();
+        return;
+      }
     }
-    format('formatBlock', isHeading ? 'div' : 'h2');
+    format('formatBlock', tag);
+    updateToolStates();
+  };
+  sizeMenu.append(...sizeChoices.map(([tag, label, size]) =>
+    h('button', {
+      type: 'button', class: 'note-size-choice',
+      onpointerdown: (e) => { rememberSelection(); e.preventDefault(); },
+      onmousedown: (e) => e.preventDefault(),
+      onclick: () => applyTextSize(tag),
+    }, label + ' · ' + size)));
+  const toggleHeading = () => {
+    rememberSelection();
+    sizeMenu.hidden = !sizeMenu.hidden;
+    positionSizeMenu();
+  };
+  const positionSizeMenu = () => {
+    if (sizeMenu.hidden || !toolbar.isConnected) return;
+    const headingButton = toolButtons.get('heading');
+    if (!headingButton) return;
+    const bounds = headingButton.getBoundingClientRect();
+    sizeMenu.style.left = Math.max(8, Math.min(bounds.left, window.innerWidth - 172)) + 'px';
+    sizeMenu.style.top = Math.max(8, toolbar.getBoundingClientRect().top - sizeMenu.offsetHeight - 8) + 'px';
   };
   const tools = [
     ['heading', 'Titre', toggleHeading],
@@ -541,7 +572,7 @@ function editor(ctx, id) {
     const block = element.closest('h2, h3, h4, blockquote, pre, p, div, li');
     const hasSelectedText = !selection.isCollapsed;
     const states = {
-      heading: block?.tagName === 'H2',
+      heading: ['H2', 'H3', 'H4'].includes(block?.tagName),
       checkbox: !!item && (list?.classList.contains('check-list') || !!item.querySelector(':scope > input[type="checkbox"]')),
       list: !!item && list?.tagName === 'UL' && !list.classList.contains('check-list'),
       'list-numbers': !!item && list?.tagName === 'OL',
@@ -581,6 +612,7 @@ function editor(ctx, id) {
     const keyboardOpen = (document.activeElement === editable || document.activeElement === titleIn) && window.innerHeight - visibleBottom > 100;
     toolbar.classList.toggle('keyboard-visible', keyboardOpen);
     toolbar.style.top = Math.max(0, visibleBottom - toolbar.offsetHeight) + 'px';
+    positionSizeMenu();
   };
   const followKeyboard = () => {
     cancelAnimationFrame(keyboardFrame);
@@ -613,8 +645,9 @@ function editor(ctx, id) {
   }
 
   ctx.main.classList.add('note-editing-host');
-  ctx.main.append(titleIn, editable, status, toolbar, caretHint);
+  ctx.main.append(titleIn, editable, status, toolbar, sizeMenu, caretHint);
   ctx.onLeave(() => {
+    closeSizeMenu();
     ctx.main.classList.remove('note-editing-host');
     if (timer) flush();
     cancelAnimationFrame(keyboardFrame);
