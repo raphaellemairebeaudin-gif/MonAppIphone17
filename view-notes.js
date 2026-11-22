@@ -351,6 +351,25 @@ function editor(ctx, id) {
     const selection = window.getSelection();
     if (selection?.rangeCount && editable.contains(selection.anchorNode)) savedRange = selection.getRangeAt(0).cloneRange();
   };
+  // Lire les styles du texte réellement sélectionné, plutôt que ceux
+  // du curseur (qui peuvent différer sur Safari iPhone).
+  const selectedStyleActive = (key, selection = window.getSelection()) => {
+    if (!selection?.rangeCount || selection.isCollapsed) return document.queryCommandState(key);
+    const range = selection.getRangeAt(0);
+    const root = range.commonAncestorContainer;
+    const walker = document.createTreeWalker(root.nodeType === Node.TEXT_NODE ? root.parentNode : root, NodeFilter.SHOW_TEXT);
+    const nodes = root.nodeType === Node.TEXT_NODE ? [root] : [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    const selected = nodes.filter(node => node.textContent.trim() && range.intersectsNode(node));
+    if (!selected.length) return document.queryCommandState(key);
+    return selected.every(node => {
+      const style = getComputedStyle(node.parentElement);
+      if (key === 'bold') return style.fontWeight === 'bold' || Number(style.fontWeight) >= 600;
+      if (key === 'italic') return style.fontStyle === 'italic' || style.fontStyle === 'oblique';
+      if (key === 'underline') return style.textDecorationLine.includes('underline') || !!node.parentElement.closest('u');
+      return false;
+    });
+  };
   const format = (command, value) => {
     editingStarted = true;
     const toggled = ['bold', 'italic', 'underline'].includes(command);
@@ -367,7 +386,7 @@ function editor(ctx, id) {
     const activeStyles = {};
     for (const key of ['bold', 'italic', 'underline'])
       activeStyles[key] = hasSelectedText
-        ? document.queryCommandState(key)
+        ? selectedStyleActive(key, selection)
         : (hintFormat[key] ?? document.queryCommandState(key));
     document.execCommand(command, false, value);
     if (toggled && !hasSelectedText) {
@@ -576,8 +595,8 @@ function editor(ctx, id) {
       checkbox: !!item && (list?.classList.contains('check-list') || !!item.querySelector(':scope > input[type="checkbox"]')),
       list: !!item && list?.tagName === 'UL' && !list.classList.contains('check-list'),
       'list-numbers': !!item && list?.tagName === 'OL',
-      bold: hasSelectedText ? document.queryCommandState('bold') : (hintFormat.bold ?? document.queryCommandState('bold')),
-      italic: hasSelectedText ? document.queryCommandState('italic') : (hintFormat.italic ?? document.queryCommandState('italic')),
+      bold: hasSelectedText ? selectedStyleActive('bold', selection) : (hintFormat.bold ?? document.queryCommandState('bold')),
+      italic: hasSelectedText ? selectedStyleActive('italic', selection) : (hintFormat.italic ?? document.queryCommandState('italic')),
       quote: block?.tagName === 'BLOCKQUOTE',
       code: block?.tagName === 'PRE',
       minus: false,
