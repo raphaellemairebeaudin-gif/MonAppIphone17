@@ -330,16 +330,22 @@ function editor(ctx, id) {
   const format = (command, value) => {
     editingStarted = true;
     const toggled = ['bold', 'italic', 'underline'].includes(command);
-    const nextHintState = toggled ? !(hintFormat[command] ?? document.queryCommandState(command)) : null;
     editable.focus({ preventScroll: true });
     if (savedRange) {
       const sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(savedRange);
     }
+    // Capturer les trois styles indépendamment AVANT de changer l'un d'eux.
+    // Safari peut perdre l'état des autres styles sur un curseur vide.
+    const activeStyles = {};
+    for (const key of ['bold', 'italic', 'underline'])
+      activeStyles[key] = hintFormat[key] ?? document.queryCommandState(key);
     document.execCommand(command, false, value);
-    if (toggled) hintFormat[command] = nextHintState;
-    else resetHintFormat();
+    if (toggled) {
+      activeStyles[command] = !activeStyles[command];
+      Object.assign(hintFormat, activeStyles);
+    } else resetHintFormat();
     rememberSelection();
     sync();
     scheduleCaretHint();
