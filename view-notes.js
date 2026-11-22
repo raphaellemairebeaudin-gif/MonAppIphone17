@@ -169,16 +169,27 @@ function editor(ctx, id) {
     // Pour une ligne vide, utiliser la boîte de la ligne, sans insérer de noeud.
     const node = selection.anchorNode;
     const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-    // Si une lettre suit immédiatement le curseur sur la même ligne,
-    // l'utilisateur modifie du texte existant : masquer le repère clignotant.
-    // Lire le texte sans toucher au DOM éditable ni à la sélection.
+    // Un repère n'a sa place qu'en fin de saisie, jamais devant du texte
+    // existant (même si des espaces séparent le curseur de la lettre).
+    // Inspecter la suite du bloc courant sans modifier la sélection.
     const lineBlock = element?.closest('li, p, div, h2, h3, h4, blockquote, pre') || editable;
-    const afterCaret = document.createRange();
-    afterCaret.selectNodeContents(lineBlock);
     try {
+      const afterCaret = document.createRange();
+      afterCaret.selectNodeContents(lineBlock);
       afterCaret.setStart(range.startContainer, range.startOffset);
-      if (/^\p{L}/u.test(afterCaret.toString())) return;
-    } catch (_) { /* Le curseur peut être déplacé pendant un rendu iOS. */ }
+      const remaining = afterCaret.toString();
+      // Ne pas traverser un saut de ligne explicite.
+      const sameLine = remaining.split(/[\r\n]/, 1)[0];
+      if (/\p{L}|\p{N}/u.test(sameLine)) return;
+    } catch (_) {
+      // Certains placements de curseur Safari ne sont pas contenus dans
+      // le bloc détecté : chercher la suite dans l'éditeur entier.
+      const afterCaret = document.createRange();
+      afterCaret.selectNodeContents(editable);
+      afterCaret.setStart(range.startContainer, range.startOffset);
+      const sameLine = afterCaret.toString().split(/[\r\n]/, 1)[0];
+      if (/\p{L}|\p{N}/u.test(sameLine)) return;
+    }
     if (!rect?.height) {
       const line = element.closest('li, p, div, h2, h3, h4') || editable;
       const bounds = line.getBoundingClientRect();
