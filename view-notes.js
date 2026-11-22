@@ -151,6 +151,59 @@ function editor(ctx, id) {
     // Les anciennes listes Markdown deviennent également cochables.
   }
 
+  // Indicateur visuel uniquement : le « a » n'entre jamais dans la note.
+  const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true' }, 'a');
+  let hintFrame = 0;
+  const updateCaretHint = () => {
+    caretHint.hidden = true;
+    if (document.activeElement !== editable) return;
+    const selection = window.getSelection();
+    if (!selection?.rangeCount || !selection.isCollapsed || !editable.contains(selection.anchorNode)) return;
+    const range = selection.getRangeAt(0).cloneRange();
+    let rect = range.getClientRects()[0];
+    if (!rect || (!rect.height && !rect.width)) {
+      const node = range.startContainer;
+      const offset = range.startOffset;
+      if (node.nodeType === Node.TEXT_NODE && offset > 0) {
+        const before = range.cloneRange();
+        before.setStart(node, offset - 1);
+        rect = before.getBoundingClientRect();
+        if (rect?.height) rect = { left: rect.right, top: rect.top, height: rect.height };
+      }
+    }
+    if (!rect?.height) {
+      const node = selection.anchorNode;
+      const element = node.nodeType === 1 ? node : node.parentElement;
+      const line = element.closest('li, p, div') || editable;
+      rect = line.getBoundingClientRect();
+      if (!rect.height) return;
+      rect = { left: rect.left, top: rect.top, height: rect.height };
+    }
+    const node = selection.anchorNode;
+    const element = node.nodeType === 1 ? node : node.parentElement;
+    const style = getComputedStyle(element);
+    caretHint.textContent = style.textTransform === 'uppercase' ? 'A' : 'a';
+    caretHint.style.left = Math.round(rect.left + 3) + 'px';
+    caretHint.style.top = Math.round(rect.top) + 'px';
+    caretHint.style.fontFamily = style.fontFamily;
+    caretHint.style.fontSize = style.fontSize;
+    caretHint.style.lineHeight = style.lineHeight;
+    caretHint.style.fontWeight = document.queryCommandState('bold') ? '700' : style.fontWeight;
+    caretHint.style.fontStyle = document.queryCommandState('italic') ? 'italic' : style.fontStyle;
+    caretHint.style.textDecoration = document.queryCommandState('underline') ? 'underline' : style.textDecorationLine;
+    caretHint.hidden = false;
+  };
+  const scheduleCaretHint = () => {
+    cancelAnimationFrame(hintFrame);
+    hintFrame = requestAnimationFrame(updateCaretHint);
+  };
+  editable.addEventListener('input', scheduleCaretHint);
+  editable.addEventListener('focus', scheduleCaretHint);
+  editable.addEventListener('blur', () => { caretHint.hidden = true; });
+  editable.addEventListener('keyup', scheduleCaretHint);
+  editable.addEventListener('pointerup', scheduleCaretHint);
+  document.addEventListener('selectionchange', scheduleCaretHint);
+  window.addEventListener('scroll', scheduleCaretHint, true);
   const toolbar = h('div', { class: 'toolbar note-keyboard-toolbar' });
   editable.addEventListener('change', (e) => {
     if (e.target.matches('input[type="checkbox"]')) {
@@ -258,6 +311,7 @@ function editor(ctx, id) {
     document.execCommand(command, false, value);
     rememberSelection();
     sync();
+    scheduleCaretHint();
   };
   const currentItem = () => {
     const selection = window.getSelection();
@@ -287,7 +341,7 @@ function editor(ctx, id) {
     const range = document.createRange();
     range.selectNodeContents(paragraph); range.collapse(false);
     selection.removeAllRanges(); selection.addRange(range);
-    rememberSelection(); sync();
+    rememberSelection(); sync(); scheduleCaretHint();
   };
   const replaceEmptyListItem = (item, kind) => {
     if (!item || item.textContent.trim()) return false;
@@ -392,6 +446,9 @@ function editor(ctx, id) {
   };
   const followKeyboard = () => {
     cancelAnimationFrame(keyboardFrame);
+    cancelAnimationFrame(hintFrame);
+    document.removeEventListener('selectionchange', scheduleCaretHint);
+    window.removeEventListener('scroll', scheduleCaretHint, true);
     let frames = 0;
     const tick = () => {
       positionToolbar();
@@ -420,7 +477,7 @@ function editor(ctx, id) {
     ]);
   }
 
-  ctx.main.append(titleIn, editable, status, toolbar);
+  ctx.main.append(titleIn, editable, status, toolbar, caretHint);
   ctx.onLeave(() => {
     if (timer) flush();
     cancelAnimationFrame(keyboardFrame);
