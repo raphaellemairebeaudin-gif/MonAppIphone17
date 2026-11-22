@@ -951,6 +951,7 @@ html, body, #app, .drawer { background-color: var(--bg); }
 /* Éditeur de notes enrichi : mise en forme visible pendant la saisie. */
 .rich-editor { white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
 .rich-editor:empty::before { content: attr(data-placeholder); color: var(--sec); pointer-events: none; }
+.rich-editor:focus:empty::before { content: none; }
 .rich-editor:focus { box-shadow: none; }
 .rich-editor h2 { font-size: 24px; margin: 12px 0 6px; }
 .rich-editor h3 { font-size: 20px; margin: 10px 0 5px; }
