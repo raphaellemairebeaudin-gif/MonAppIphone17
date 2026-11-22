@@ -22,8 +22,9 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme
 
 if ('serviceWorker' in navigator) {
   let refreshing = false;
+  const hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
+    if (hadController && !refreshing) {
       refreshing = true;
       location.reload();
     }

@@ -12,15 +12,25 @@ function download() {
 }
 
 async function clearLocal() {
+  if (!navigator.onLine) {
+    toast('Connexion Internet requise pour vider et recharger le cache.');
+    return;
+  }
   if (!confirm('Vider le cache de l’app et la recharger ? Tes données en ligne ne sont pas touchées.')) return;
   try {
     Object.keys(localStorage).filter((k) => k.startsWith('cache:')).forEach((k) => localStorage.removeItem(k));
-    const keys = await caches.keys();
-    await Promise.all(keys.map((k) => caches.delete(k)));
-    const regs = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(regs.map((r) => r.unregister()));
-  } catch (e) { toast('Impossible de vider le cache.'); }
-  location.reload();
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    location.replace(location.pathname);
+  } catch (e) {
+    toast('Impossible de vider le cache.');
+  }
 }
 
 export function render(ctx) {
