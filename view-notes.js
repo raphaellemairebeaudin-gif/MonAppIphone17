@@ -487,6 +487,30 @@ function editor(ctx, id) {
     const element = node?.nodeType === 1 ? node : node?.parentElement;
     const block = element?.closest('h2, h3, h4, p, div, li');
     const isHeading = block?.tagName === 'H2' && editable.contains(block);
+    // Sans sélection, désactiver H termine le titre sans modifier
+    // les caractères déjà écrits : le curseur continue en texte normal.
+    if (isHeading && selection?.isCollapsed && selection.rangeCount) {
+      const caret = selection.getRangeAt(0).cloneRange();
+      const rest = document.createRange();
+      rest.selectNodeContents(block);
+      rest.setStart(caret.startContainer, caret.startOffset);
+      const trailing = rest.extractContents();
+      const paragraph = document.createElement('div');
+      paragraph.append(trailing);
+      if (!paragraph.textContent && !paragraph.querySelector('br')) paragraph.append(document.createElement('br'));
+      block.after(paragraph);
+      if (!block.textContent.trim()) block.remove();
+      const next = document.createRange();
+      next.selectNodeContents(paragraph);
+      next.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(next);
+      resetHintFormat();
+      rememberSelection();
+      sync();
+      scheduleCaretHint();
+      return;
+    }
     format('formatBlock', isHeading ? 'div' : 'h2');
   };
   const tools = [
