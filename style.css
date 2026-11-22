@@ -1009,3 +1009,5 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .rich-editor span[data-text-size="17"] { font-size: 17px; }
 .rich-editor span[data-text-size="20"] { font-size: 20px; }
 .rich-editor span[data-text-size="24"] { font-size: 24px; }
+
+.note-size-choice.is-active { outline: 1px solid #fff; outline-offset: -1px; }
