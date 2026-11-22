@@ -185,8 +185,8 @@ function editor(ctx, id) {
     beforeCaret.selectNodeContents(editable);
     beforeCaret.setEnd(range.startContainer, range.startOffset);
     const precedingText = beforeCaret.toString();
-    const lastLine = precedingText.split(/[\\r\\n]/).pop() || '';
-    const letters = lastLine.match(/\\p{L}/gu);
+    const lastLine = precedingText.split(/[\r\n]/).pop() || '';
+    const letters = lastLine.match(/\p{L}/gu);
     caretHint.textContent = letters?.length ? letters[letters.length - 1] : 'A';
     // Coordonnées dans le contenu de main, pas dans la fenêtre :
     // le repère défile avec la note sans se détacher de sa ligne.
