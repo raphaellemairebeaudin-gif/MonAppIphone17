@@ -1,4 +1,4 @@
-const CACHE = 'app-v3';
+const CACHE = 'app-v4';
 const SHELL = [
   './', 'index.html', 'manifest.json', 'style.css', 'config.js', 'db.js', 'ui.js', 'app.js',
   'view-train.js', 'view-notes.js', 'view-budget.js', 'view-supp.js', 'view-profile.js', 'view-settings.js',
@@ -22,7 +22,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
-  const cdn = url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'esm.sh';
+  const cdn = url.hostname === 'cdn.jsdelivr.net';
   if (!sameOrigin && !cdn) return;
 
   e.respondWith(

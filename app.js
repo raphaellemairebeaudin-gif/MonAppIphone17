@@ -140,6 +140,10 @@ document.addEventListener('visibilitychange', () => {
 });
 
 (async () => {
-  const s = await db.getSession();
-  if (s) start(s); else showLogin();
+  try {
+    const s = await db.getSession();
+    if (s) start(s); else showLogin();
+  } catch (e) {
+    root.replaceChildren(h('p', { class: 'err', style: { padding: '24px' } }, 'Erreur au démarrage : ' + (e?.message || e)));
+  }
 })();
