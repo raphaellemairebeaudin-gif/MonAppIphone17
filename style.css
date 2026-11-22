@@ -96,7 +96,7 @@ a {
   top: 0;
   z-index: 10;
   background: var(--bg);
-  padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 22px);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -274,7 +274,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: max(12px, env(safe-area-inset-top)) 14px calc(env(safe-area-inset-bottom) + 16px);
+  padding: calc(env(safe-area-inset-top, 0px) + 30px) 14px calc(env(safe-area-inset-bottom, 0px) + 4px);
   overscroll-behavior: contain;
 }
 
@@ -353,8 +353,11 @@ main {
 }
 
 .drawer .bottom {
+  margin-top: auto;
   border-top: 0.5px solid var(--line);
   padding-top: 8px;
+  padding-bottom: 0;
+  flex-shrink: 0;
 }
 
 input, select, textarea {
@@ -737,7 +740,7 @@ h3.sec {
 
 .toolbar {
   position: sticky;
-  top: calc(env(safe-area-inset-top, 0px) + 50px);
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
   z-index: 5;
   display: flex;
   gap: 2px;
