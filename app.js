@@ -125,7 +125,7 @@ function showLogin() {
       } catch (ex) {
         err.textContent = ex && ex.status === 400
           ? 'Courriel ou mot de passe invalide.'
-          : 'Connexion impossible. Vérifie ta connexion Internet.';
+          : `Erreur (${ex?.status || '?'}) : ${ex?.message || 'Connexion impossible.'}`;
         btn.disabled = false;
       }
     },
