@@ -75,7 +75,14 @@ document.addEventListener('touchend', (e) => {
   if (dt > 600 || Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
 
   const isOpen = document.body.classList.contains('menu-open');
-  if (dx > 0 && !isOpen) setMenu(true);
+  if (dx > 0 && !isOpen) {
+    // Dans l'éditeur de note, glisser vers la droite revient à la liste
+    // plutôt que d'ouvrir le tiroir. Le changement de route déclenche
+    // onLeave et l'enregistrement automatique de la note.
+    const [, section, noteId] = location.hash.split('/');
+    if (section === 'notes' && noteId) location.hash = '#/notes';
+    else setMenu(true);
+  }
   else if (dx < 0 && isOpen) setMenu(false);
 }, { passive: true });
 
