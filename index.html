@@ -26,7 +26,29 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><p id="boot-status" style="padding:24px;color:#f4f4f4;font:16px system-ui">Chargement de l’application…</p></div>
+<script>
+(function () {
+  var app = document.getElementById('app');
+  var watchdog = setTimeout(function () {
+    if (document.getElementById('boot-status')) {
+      app.innerHTML = '<p style="padding:24px;color:#f4f4f4;font:16px system-ui">L’application ne parvient pas à démarrer. Vérifie ta connexion Internet, puis réessaie. Si le problème persiste, signale « démarrage bloqué ».</p>';
+    }
+  }, 12000);
+  window.addEventListener('error', function (event) {
+    if (!document.getElementById('boot-status')) return;
+    clearTimeout(watchdog);
+    app.textContent = 'Erreur de démarrage : ' + (event.message || 'chargement impossible');
+    app.style.cssText = 'padding:24px;color:#f4f4f4;font:16px system-ui';
+  }, true);
+  window.addEventListener('unhandledrejection', function (event) {
+    if (!document.getElementById('boot-status')) return;
+    clearTimeout(watchdog);
+    app.textContent = 'Erreur de démarrage : ' + (event.reason?.message || String(event.reason || 'inconnue'));
+    app.style.cssText = 'padding:24px;color:#f4f4f4;font:16px system-ui';
+  });
+})();
+</script>
 <div id="toast" role="status"></div>
 <script type="module" src="app.js"></script>
 </body>
