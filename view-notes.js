@@ -123,21 +123,35 @@ function editor(ctx, id) {
   const preview = h('div', { class: 'md' });
   const toolbar = h('div', { class: 'toolbar note-keyboard-toolbar' });
 
-  // Aligne la barre d'outils sur le haut du clavier iOS quand il est visible.
+  // Le clavier iOS modifie le visualViewport pendant son animation.
+  // Positionner par rapport au bord visible, sans attendre un défilement.
+  let keyboardFrame = 0;
   const positionToolbar = () => {
+    if (!toolbar.isConnected) return;
     const viewport = window.visualViewport;
-    const covered = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
-    const keyboardOpen = covered > 100 && (document.activeElement === ta || document.activeElement === titleIn);
-    toolbar.style.setProperty('--note-keyboard-offset', keyboardOpen ? covered + 'px' : '0px');
+    const visibleBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+    const covered = Math.max(0, window.innerHeight - visibleBottom);
+    const focused = document.activeElement === ta || document.activeElement === titleIn;
+    const keyboardOpen = focused && covered > 100;
     toolbar.classList.toggle('keyboard-visible', keyboardOpen);
+    toolbar.style.top = Math.max(0, visibleBottom - toolbar.offsetHeight) + 'px';
+  };
+  const followKeyboard = () => {
+    cancelAnimationFrame(keyboardFrame);
+    let frames = 0;
+    const tick = () => {
+      positionToolbar();
+      if (++frames < 45) keyboardFrame = requestAnimationFrame(tick);
+    };
+    keyboardFrame = requestAnimationFrame(tick);
   };
   window.visualViewport?.addEventListener('resize', positionToolbar);
   window.visualViewport?.addEventListener('scroll', positionToolbar);
   window.addEventListener('resize', positionToolbar);
-  ta.addEventListener('focus', positionToolbar);
-  ta.addEventListener('blur', () => requestAnimationFrame(positionToolbar));
-  titleIn.addEventListener('focus', positionToolbar);
-  titleIn.addEventListener('blur', () => requestAnimationFrame(positionToolbar));
+  ta.addEventListener('focus', followKeyboard);
+  ta.addEventListener('blur', followKeyboard);
+  titleIn.addEventListener('focus', followKeyboard);
+  titleIn.addEventListener('blur', followKeyboard);
 
   const autosize = () => { ta.style.height = 'auto'; ta.style.height = Math.max(ta.scrollHeight, window.innerHeight * 0.5) + 'px'; };
   const sync = () => { data.body = ta.value; autosize(); changed(); };
@@ -244,6 +258,7 @@ function editor(ctx, id) {
   ctx.main.append(titleIn, toolbar, ta, preview, status);
   ctx.onLeave(() => {
     if (timer) flush();
+    cancelAnimationFrame(keyboardFrame);
     window.visualViewport?.removeEventListener('resize', positionToolbar);
     window.visualViewport?.removeEventListener('scroll', positionToolbar);
     window.removeEventListener('resize', positionToolbar);
