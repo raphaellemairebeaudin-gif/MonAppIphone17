@@ -183,13 +183,20 @@ function editor(ctx, id) {
     if (e.inputType === 'deleteContentBackward') {
       if (!isEmpty) return;
       e.preventDefault();
-      const paragraph = document.createElement('div');
-      paragraph.append(document.createElement('br'));
-      if (item.previousElementSibling) list.before(paragraph);
-      else list.before(paragraph);
-      item.remove();
+      const previous = item.previousElementSibling;
+      if (previous) {
+        // Revenir à l'élément précédent, même s'il appartient à la même liste.
+        item.remove();
+        setCaret(previous, true);
+      } else {
+        // Première ligne : retirer son marqueur sans déplacer le curseur ailleurs.
+        const paragraph = document.createElement('div');
+        paragraph.append(document.createElement('br'));
+        list.before(paragraph);
+        item.remove();
+        setCaret(paragraph);
+      }
       if (!list.children.length) list.remove();
-      setCaret(paragraph);
       sync();
       return;
     }
@@ -252,11 +259,57 @@ function editor(ctx, id) {
     rememberSelection();
     sync();
   };
+  const currentItem = () => {
+    const selection = window.getSelection();
+    const node = selection?.anchorNode;
+    const element = node?.nodeType === 1 ? node : node?.parentElement;
+    const item = element?.closest('li');
+    return item && editable.contains(item) ? item : null;
+  };
+  const removeListMarker = (item) => {
+    const list = item.parentElement;
+    const before = [...list.children].slice(0, [...list.children].indexOf(item));
+    const after = [...list.children].slice([...list.children].indexOf(item) + 1);
+    const paragraph = document.createElement('div');
+    const check = item.querySelector(':scope > input[type="checkbox"]');
+    if (check) check.remove();
+    paragraph.append(...[...item.childNodes]);
+    if (!paragraph.childNodes.length) paragraph.append(document.createElement('br'));
+    if (after.length) {
+      const remainder = list.cloneNode(false);
+      remainder.append(...after);
+      list.after(remainder);
+    }
+    list.after(paragraph);
+    item.remove();
+    if (!before.length) list.remove();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(paragraph); range.collapse(false);
+    selection.removeAllRanges(); selection.addRange(range);
+    rememberSelection(); sync();
+  };
+  const toggleList = (kind) => {
+    editable.focus({ preventScroll: true });
+    if (savedRange) {
+      const selection = window.getSelection();
+      selection.removeAllRanges(); selection.addRange(savedRange);
+    }
+    const item = currentItem();
+    if (item && item.parentElement.tagName === kind && !item.parentElement.classList.contains('check-list')) {
+      removeListMarker(item);
+    } else format(kind === 'OL' ? 'insertOrderedList' : 'insertUnorderedList');
+  };
   const insertCheckbox = () => {
     editable.focus({ preventScroll: true });
     if (savedRange) {
       const selection = window.getSelection();
       selection.removeAllRanges(); selection.addRange(savedRange);
+    }
+    const existing = currentItem();
+    if (existing && (existing.parentElement.classList.contains('check-list') || existing.querySelector(':scope > input[type="checkbox"]'))) {
+      removeListMarker(existing);
+      return;
     }
     const selection = window.getSelection();
     const li = document.createElement('li'); li.className = 'check-item';
@@ -274,8 +327,8 @@ function editor(ctx, id) {
   const tools = [
     ['heading', 'Titre', () => format('formatBlock', 'h2')],
     ['checkbox', 'Case à cocher', insertCheckbox],
-    ['list', 'Liste à puces', () => format('insertUnorderedList')],
-    ['list-numbers', 'Liste numérotée', () => format('insertOrderedList')],
+    ['list', 'Liste à puces', () => toggleList('UL')],
+    ['list-numbers', 'Liste numérotée', () => toggleList('OL')],
     ['bold', 'Gras', () => format('bold')],
     ['italic', 'Italique', () => format('italic')],
     ['quote', 'Citation', () => format('formatBlock', 'blockquote')],
