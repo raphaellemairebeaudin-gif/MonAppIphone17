@@ -206,6 +206,26 @@ function editor(ctx, id) {
   editable.addEventListener('blur', () => { editingStarted = false; caretHint.hidden = true; });
   editable.addEventListener('keyup', scheduleCaretHint);
   editable.addEventListener('pointerup', scheduleCaretHint);
+  // Au changement d'application, masquer le repère sans perdre sa position.
+  // Au retour, recalculer sa place après la restauration du viewport iOS.
+  const onAppVisibility = () => {
+    cancelAnimationFrame(hintFrame);
+    if (document.visibilityState !== 'visible') {
+      caretHint.hidden = true;
+      return;
+    }
+    if (editingStarted && document.activeElement === editable) {
+      requestAnimationFrame(() => requestAnimationFrame(scheduleCaretHint));
+    } else {
+      caretHint.hidden = true;
+    }
+  };
+  const onPageShow = () => {
+    if (document.visibilityState === 'visible' && editingStarted && document.activeElement === editable)
+      requestAnimationFrame(() => requestAnimationFrame(scheduleCaretHint));
+  };
+  document.addEventListener('visibilitychange', onAppVisibility);
+  window.addEventListener('pageshow', onPageShow);
   document.addEventListener('selectionchange', scheduleCaretHint);
   window.addEventListener('scroll', scheduleCaretHint, true);
   window.visualViewport?.addEventListener('scroll', scheduleCaretHint);
@@ -492,6 +512,8 @@ function editor(ctx, id) {
     if (timer) flush();
     cancelAnimationFrame(keyboardFrame);
     cancelAnimationFrame(hintFrame);
+    document.removeEventListener('visibilitychange', onAppVisibility);
+    window.removeEventListener('pageshow', onPageShow);
     document.removeEventListener('selectionchange', scheduleCaretHint);
     window.removeEventListener('scroll', scheduleCaretHint, true);
     window.visualViewport?.removeEventListener('scroll', scheduleCaretHint);
