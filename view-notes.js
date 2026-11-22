@@ -119,7 +119,7 @@ function editor(ctx, id) {
   // Leur contenu n'est remplacé par du HTML que lors d'une modification.
   if (data.body.startsWith(RICH)) {
     const parsed = new DOMParser().parseFromString(data.body.slice(RICH.length), 'text/html');
-    const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'P', 'DIV', 'BR', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'H2', 'H3', 'H4', 'CODE', 'PRE', 'HR', 'SPAN', 'INPUT']);
+    const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'P', 'DIV', 'BR', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'H2', 'H3', 'H4', 'CODE', 'PRE', 'HR', 'SPAN', 'INPUT', 'LABEL']);
     const clean = (node) => {
       for (const child of [...node.childNodes]) {
         if (child.nodeType === Node.COMMENT_NODE) { child.remove(); continue; }
@@ -138,7 +138,9 @@ function editor(ctx, id) {
           if (checked) child.setAttribute('checked', '');
           continue;
         }
+        const safeClass = child.tagName === 'UL' && child.classList.contains('check-list') ? 'check-list' : child.tagName === 'LI' && child.classList.contains('check-item') ? 'check-item' : child.tagName === 'LABEL' && child.classList.contains('md-todo') ? 'md-todo' : '';
         for (const attr of [...child.attributes]) child.removeAttribute(attr.name);
+        if (safeClass) child.className = safeClass;
         clean(child);
       }
     };
