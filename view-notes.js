@@ -591,8 +591,15 @@ function editor(ctx, id) {
     const headingButton = toolButtons.get('heading');
     if (!headingButton) return;
     const bounds = headingButton.getBoundingClientRect();
-    sizeMenu.style.left = Math.max(8, Math.min(bounds.left, window.innerWidth - 172)) + 'px';
-    sizeMenu.style.top = Math.max(8, toolbar.getBoundingClientRect().top - sizeMenu.offsetHeight - 8) + 'px';
+    // Ancrer le menu au bouton H, pas au contenu de la note.
+    // Le bouton peut défiler horizontalement dans la barre d'outils.
+    const viewport = window.visualViewport;
+    const visibleLeft = viewport?.offsetLeft || 0;
+    const visibleRight = visibleLeft + (viewport?.width || window.innerWidth);
+    const width = sizeMenu.offsetWidth;
+    const left = Math.max(visibleLeft + 8, Math.min(bounds.left + bounds.width / 2 - width / 2, visibleRight - width - 8));
+    sizeMenu.style.left = Math.round(left) + 'px';
+    sizeMenu.style.top = Math.round(bounds.top - sizeMenu.offsetHeight - 4) + 'px';
   };
   const tools = [
     ['heading', 'Titre', toggleHeading],
@@ -685,6 +692,7 @@ function editor(ctx, id) {
   window.visualViewport?.addEventListener('resize', positionToolbar);
   window.visualViewport?.addEventListener('scroll', positionToolbar);
   window.addEventListener('resize', positionToolbar);
+  toolbar.addEventListener('scroll', positionSizeMenu, { passive: true });
   editable.addEventListener('focus', followKeyboard);
   editable.addEventListener('blur', followKeyboard);
   titleIn.addEventListener('focus', followKeyboard);
