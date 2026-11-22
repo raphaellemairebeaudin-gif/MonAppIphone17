@@ -179,15 +179,26 @@ function editor(ctx, id) {
     const bold = hintFormat.bold ?? document.queryCommandState('bold');
     const italic = hintFormat.italic ?? document.queryCommandState('italic');
     const underline = hintFormat.underline ?? document.queryCommandState('underline');
-    caretHint.textContent = 'A';
+    // Afficher la dernière lettre située avant le curseur, ou A par défaut.
+    // Ne jamais insérer ce caractère dans la note.
+    const beforeCaret = document.createRange();
+    beforeCaret.selectNodeContents(editable);
+    beforeCaret.setEnd(range.startContainer, range.startOffset);
+    const precedingText = beforeCaret.toString();
+    const lastLine = precedingText.split(/[\\r\\n]/).pop() || '';
+    const letters = lastLine.match(/\\p{L}/gu);
+    caretHint.textContent = letters?.length ? letters[letters.length - 1] : 'A';
     // Coordonnées dans le contenu de main, pas dans la fenêtre :
     // le repère défile avec la note sans se détacher de sa ligne.
     const hostRect = ctx.main.getBoundingClientRect();
     caretHint.style.left = Math.round(rect.left - hostRect.left + ctx.main.scrollLeft + 2) + 'px';
-    caretHint.style.top = Math.round(rect.top - hostRect.top + ctx.main.scrollTop) + 'px';
+    const fontSize = parseFloat(style.fontSize) || 16;
+    const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.2;
+    const verticalInset = Math.max(0, (lineHeight - fontSize) / 2);
+    caretHint.style.top = Math.round(rect.top - hostRect.top + ctx.main.scrollTop + verticalInset) + 'px';
     caretHint.style.fontFamily = style.fontFamily;
     caretHint.style.fontSize = style.fontSize;
-    caretHint.style.lineHeight = style.lineHeight;
+    caretHint.style.lineHeight = '1';
     caretHint.style.fontWeight = bold ? '700' : '400';
     caretHint.style.fontStyle = italic ? 'italic' : 'normal';
     caretHint.style.textDecoration = underline ? 'underline' : 'none';
