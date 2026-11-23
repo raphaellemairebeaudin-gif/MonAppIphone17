@@ -104,7 +104,33 @@ function cardSheet(redraw, existing = null) {
       field('Type de carte', type),
       field('Nom', name),
       !existing && field('Solde initial ($)', initial),
-      limitRow, err, save
+      limitRow, err, save,
+      existing && h('button', {
+        type: 'button', class: 'budget-card-delete',
+        onclick: async (event) => {
+          if (!confirm('Supprimer « ' + (existing.data.name || 'cette carte') +
+            ' » ? Cette action est irréversible.')) return;
+          const linkedEvents = db.all('bank_event').filter(e => e.data.accountId === existing.id);
+          const linkedTransfers = db.all('bank_transfer').filter(t =>
+            t.data.fromId === existing.id || t.data.toId === existing.id
+          );
+          if (linkedEvents.length || linkedTransfers.length) {
+            err.textContent = 'Cette carte contient des opérations ou des virements. Supprime-les avant de supprimer la carte.';
+            return;
+          }
+          const button = event.currentTarget;
+          button.disabled = true;
+          err.textContent = '';
+          try {
+            await db.remove(existing.id);
+            close();
+            redraw();
+          } catch (e) {
+            err.textContent = errMsg(e);
+            button.disabled = false;
+          }
+        }
+      }, 'Supprimer la carte')
     );
   });
 }
