@@ -513,12 +513,36 @@ function editor(ctx, id) {
     li.append(check, document.createTextNode(' '));
     const list = document.createElement('ul'); list.className = 'check-list'; list.append(li);
     const range = selection.getRangeAt(0);
-    const block = (range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement).closest('p, div, li');
-    if (block && editable.contains(block) && block !== editable) block.after(list);
-    else { range.collapse(false); range.insertNode(list); }
-    const cursor = document.createRange(); cursor.selectNodeContents(li); cursor.collapse(false);
-    selection.removeAllRanges(); selection.addRange(cursor);
-    rememberSelection(); sync();
+    const element = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+    const block = element.closest('p, div, h2, h3, h4, blockquote');
+    if (block && editable.contains(block) && block !== editable) {
+      // Transformer la ligne actuelle en case à cocher, sans ajouter de ligne.
+      // Conserver le texte et sa mise en forme, même si la ligne est déjà remplie.
+      const marker = document.createComment('note-check-cursor');
+      const position = range.cloneRange();
+      position.collapse(true);
+      position.insertNode(marker);
+      while (block.firstChild) li.append(block.firstChild);
+      // Retirer l'espace initial si la ligne contenait déjà du texte.
+      if (li.textContent.trim()) {
+        const initialSpace = check.nextSibling;
+        if (initialSpace?.nodeType === Node.TEXT_NODE && initialSpace.textContent === ' ') initialSpace.remove();
+      }
+      block.replaceWith(list);
+      const cursor = document.createRange();
+      cursor.setStartAfter(marker);
+      cursor.collapse(true);
+      marker.remove();
+      selection.removeAllRanges(); selection.addRange(cursor);
+    } else {
+      range.collapse(false);
+      range.insertNode(list);
+      const cursor = document.createRange();
+      cursor.selectNodeContents(li); cursor.collapse(false);
+      selection.removeAllRanges(); selection.addRange(cursor);
+    }
+    rememberSelection(); sync(); scheduleCaretHint();
+    return;
   };
   const sizeMenu = h('div', { class: 'note-size-menu', hidden: true });
   const sizeChoices = [
