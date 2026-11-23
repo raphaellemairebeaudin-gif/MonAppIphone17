@@ -93,7 +93,8 @@ function openAddMenu() {
     return h('div', { class: 'budget-add-form' },
       field('Montant ($)', amount),
       choices,
-      details
+      details,
+      h('button', { type: 'button', class: 'btn primary budget-add-confirm', onclick: () => {} }, 'Confirmer')
     );
   });
 }
