@@ -64,6 +64,7 @@ function clearGesture() {
   document.body.classList.remove('gesture-dragging', 'gesture-note-back', 'gesture-menu');
   document.documentElement.style.removeProperty('--gesture-x');
   document.documentElement.style.removeProperty('--drawer-progress');
+  document.documentElement.style.removeProperty('--drawer-x');
   document.getElementById('notes-swipe-preview')?.remove();
   gesture = null;
 }
@@ -124,6 +125,7 @@ document.addEventListener('touchmove', e => {
     clamp(dx / width, 0, 1);
   gesture.progress = progress;
   document.documentElement.style.setProperty('--drawer-progress', progress);
+  document.documentElement.style.setProperty('--drawer-x', ((progress - 1) * width) + 'px');
   document.documentElement.style.setProperty('--gesture-x', (progress * width) + 'px');
 }, { passive: false });
 function finishGesture(cancelled = false) {
@@ -146,8 +148,9 @@ function finishGesture(cancelled = false) {
       setTimeout(clearGesture, 210);
     }
   } else {
-    document.documentElement.style.setProperty('--drawer-progress', commit ?
-      (g.mode === 'close' ? 0 : 1) : (g.mode === 'close' ? 1 : 0));
+    const targetProgress = commit ? (g.mode === 'close' ? 0 : 1) : (g.mode === 'close' ? 1 : 0);
+    document.documentElement.style.setProperty('--drawer-progress', targetProgress);
+    document.documentElement.style.setProperty('--drawer-x', ((targetProgress - 1) * g.width) + 'px');
     setTimeout(() => {
       setMenu(commit ? g.mode === 'open' : g.mode === 'close');
       clearGesture();
