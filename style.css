@@ -1285,7 +1285,7 @@ input, select, textarea { font-size: 16px; }
 
 /* Gestes iOS interactifs : le déplacement suit le doigt et peut être annulé. */
 body.gesture-menu .drawer{
-  transform:translate3d(calc((var(--drawer-progress,0) - 1) * 100%),0,0)!important;
+  transform:translate3d(var(--drawer-x,-300px),0,0)!important;
   will-change:transform;
 }
 body.gesture-menu .overlay{
