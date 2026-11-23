@@ -6,6 +6,7 @@ export const meta = { label: 'Notes', icon: 'notes' };
 const RICH = 'RICH_HTML:';
 const PREFIX_RE = /^(#{1,3} |- \[[ xX]\] |[-*] |\d+\. |> )/;
 let query = '';
+let selectedFolderId = 'all';
 
 const FOLDER_ICONS = ['folder', 'book', 'briefcase', 'heart', 'star', 'bulb', 'school', 'dumbbell', 'wallet', 'music'];
 const sortUpdated = (a,b) => (b.data.pinned ? 1 : 0) - (a.data.pinned ? 1 : 0) || b.updated_at.localeCompare(a.updated_at);
@@ -76,60 +77,60 @@ function editCategory(folderId, existing=null) {
 }
 export function render(ctx, param) {
   if(param && !param.startsWith('folder-') && param!=='all')return editor(ctx,param);
-  const folderId=param?.startsWith('folder-')?param.slice(7):null;
-  const folder=db.get(folderId);
-  if(folderId && (!folder||folder.kind!=='note_folder')){location.hash='#/notes';return;}
-  ctx.setHead(folder?folder.data.title:meta.label,'',{back:folder?'#/notes':undefined});
+  if(param?.startsWith('folder-')) selectedFolderId=param.slice(7);
+  if(param==='all')selectedFolderId='all';
+  ctx.setHead(meta.label,'');
   const body=h('div',{class:'notes-organizer'});
   const search=h('input',{class:'search',type:'search',placeholder:'Rechercher dans les notes',value:query,
     oninput:()=>{query=search.value;draw();}});
   ctx.main.append(search,body);
   const newNote=(fid=null,cid=null)=>{location.hash='#/notes/new~'+(fid||'')+'~'+(cid||'');};
-  ctx.setFab(()=>folder?editCategory(folder.id):newNote());
+  ctx.setFab(()=>{
+    const folder=db.get(selectedFolderId);
+    newNote(folder?.kind==='note_folder'?folder.id:null);
+  });
   function draw(){
     const q=query.trim().toLowerCase();
     const folders=db.all('note_folder').sort((a,b)=>a.created_at.localeCompare(b.created_at));
+    if(selectedFolderId!=='all'&&!folders.some(f=>f.id===selectedFolderId))selectedFolderId='all';
     const allNotes=db.all('note');
     const matching=n=>!q||(n.data.title||'').toLowerCase().includes(q)||(n.data.body||'').toLowerCase().includes(q);
     const notes=allNotes.filter(matching).sort(sortUpdated);
-    if(!folder){
-      ctx.setHead('Notes',allNotes.length+' note'+(allNotes.length>1?'s':''));
-      const strip=h('div',{class:'notes-folder-strip'},
-        ...folders.map(f=>h('div',{class:'notes-folder-tile'},
-          h('button',{class:'notes-folder-open',onclick:()=>{location.hash='#/notes/folder-'+f.id;}},
-            icon(f.data.icon||'folder'),h('span',{},f.data.title)),
-          h('button',{class:'notes-folder-edit','aria-label':'Modifier '+f.data.title,onclick:()=>editFolder(f)},icon('dots')))));
-      const uncategorized=notes.filter(n=>!n.data.folderId || !folders.some(f=>f.id===n.data.folderId));
-      body.replaceChildren(strip,
-        h('div',{class:'notes-section-heading'},h('h2',{},q?'Résultats sans dossier':'Notes sans dossier'),
-          h('button',{class:'notes-text-action',onclick:()=>newNote()},icon('plus'),' Note')),
-        ...(uncategorized.length?uncategorized.map(noteRow):[empty('Aucune note sans dossier','Crée une note ou ouvre un dossier.')]));
-      if(q){
-        const found=notes.filter(n=>!uncategorized.includes(n));
-        if(found.length)body.append(h('h2',{class:'notes-section-title'},'Notes dans les dossiers'),...found.map(noteRow));
+    const activeFolder=folders.find(f=>f.id===selectedFolderId);
+    ctx.setHead('Notes',allNotes.length+' note'+(allNotes.length>1?'s':''));
+    const allTile=h('button',{class:'notes-folder-tile notes-folder-all'+(selectedFolderId==='all'?' selected':''),
+      'aria-pressed':String(selectedFolderId==='all'),
+      onclick:()=>{selectedFolderId='all';draw();}},icon('layout-grid'),h('span',{},'Tout'));
+    const strip=h('div',{class:'notes-folder-strip'},allTile,
+      ...folders.map(f=>h('div',{class:'notes-folder-tile'+(selectedFolderId===f.id?' selected':'')},
+        h('button',{class:'notes-folder-open','aria-pressed':String(selectedFolderId===f.id),
+          onclick:()=>{selectedFolderId=f.id;draw();}},
+          icon(f.data.icon||'folder'),h('span',{},f.data.title)),
+        h('button',{class:'notes-folder-edit','aria-label':'Modifier '+f.data.title,onclick:()=>editFolder(f)},icon('dots')))));
+    const content=[strip];
+    if(!activeFolder){
+      content.push(...(notes.length?notes.map(noteRow):[empty('Aucune note','Touche + pour créer une note.')]));
+    }else{
+      const categories=db.all('note_category').filter(c=>c.data.folderId===activeFolder.id)
+        .sort((a,b)=>a.created_at.localeCompare(b.created_at));
+      content.push(h('div',{class:'notes-section-heading'},
+        h('h2',{},'Catégories'),
+        h('button',{class:'notes-text-action',onclick:()=>editCategory(activeFolder.id)},icon('plus'),' Catégorie')));
+      for(const category of categories){
+        const catNotes=notes.filter(n=>n.data.folderId===activeFolder.id&&n.data.categoryId===category.id);
+        content.push(h('section',{class:'notes-category'},
+          h('div',{class:'notes-category-heading'},h('h3',{},category.data.title),
+            h('button',{class:'notes-small-action','aria-label':'Ajouter une note',onclick:()=>newNote(activeFolder.id,category.id)},icon('plus')),
+            h('button',{class:'notes-small-action','aria-label':'Modifier la catégorie',onclick:()=>editCategory(activeFolder.id,category)},icon('dots'))),
+          ...catNotes.map(noteRow),
+          !catNotes.length?h('p',{class:'notes-category-empty'},'Aucune note'):null));
       }
-      return;
-    }
-    ctx.setHead(folder.data.title,'',{back:'#/notes'});
-    const categories=db.all('note_category').filter(c=>c.data.folderId===folder.id)
-      .sort((a,b)=>a.created_at.localeCompare(b.created_at));
-    const content=[h('div',{class:'notes-section-heading'},h('h2',{},'Catégories'),
-      h('button',{class:'notes-text-action',onclick:()=>editCategory(folder.id)},icon('plus'),' Catégorie'))];
-    for(const category of categories){
-      const catNotes=notes.filter(n=>n.data.folderId===folder.id&&n.data.categoryId===category.id);
+      const loose=notes.filter(n=>n.data.folderId===activeFolder.id&&!categories.some(c=>c.id===n.data.categoryId));
       content.push(h('section',{class:'notes-category'},
-        h('div',{class:'notes-category-heading'},
-          h('h3',{},category.data.title),
-          h('button',{class:'notes-small-action','aria-label':'Ajouter une note',onclick:()=>newNote(folder.id,category.id)},icon('plus')),
-          h('button',{class:'notes-small-action','aria-label':'Modifier la catégorie',onclick:()=>editCategory(folder.id,category)},icon('dots'))),
-        ...catNotes.map(noteRow),
-        !catNotes.length?h('p',{class:'notes-category-empty'},'Aucune note'):null));
+        h('div',{class:'notes-category-heading'},h('h3',{},'Sans catégorie'),
+          h('button',{class:'notes-small-action','aria-label':'Ajouter une note',onclick:()=>newNote(activeFolder.id)},icon('plus'))),
+        ...loose.map(noteRow),!loose.length?h('p',{class:'notes-category-empty'},'Aucune note'):null));
     }
-    const loose=notes.filter(n=>n.data.folderId===folder.id&&!categories.some(c=>c.id===n.data.categoryId));
-    content.push(h('section',{class:'notes-category'},
-      h('div',{class:'notes-category-heading'},h('h3',{},'Sans catégorie'),
-        h('button',{class:'notes-small-action','aria-label':'Ajouter une note',onclick:()=>newNote(folder.id)},icon('plus'))),
-      ...loose.map(noteRow),!loose.length?h('p',{class:'notes-category-empty'},'Aucune note'):null));
     body.replaceChildren(...content);
   }
   ctx.onData(draw);draw();
@@ -189,7 +190,7 @@ function editor(ctx, id) {
   let record = isNew ? null : db.get(id);
   if (!isNew && !record) { location.hash = '#/notes'; return; }
   const data = record ? { title: '', body: '', pinned: false, ...record.data } : { title: '', body: '', pinned: false, folderId:newFolderId||null, categoryId:newCategoryId||null };
-  const backTo = data.folderId ? '#/notes/folder-'+data.folderId : '#/notes';
+  const backTo = '#/notes';
   let timer = null;
   let chain = Promise.resolve();
   let deleted = false;
