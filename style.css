@@ -1274,3 +1274,11 @@ input, select, textarea { font-size: 16px; }
 
 /* Menu H ancré au-dessus du bouton dans le body fixe iOS */
 .note-size-menu{position:absolute;z-index:1000;max-height:min(280px,45dvh);overflow-y:auto;overscroll-behavior:contain}
+
+/* Retour animé de l'éditeur vers la liste Notes */
+@keyframes notes-back-old{from{transform:translateX(0);opacity:1}to{transform:translateX(28%);opacity:.35}}
+@keyframes notes-back-new{from{transform:translateX(-22%);opacity:.65}to{transform:translateX(0);opacity:1}}
+@media (prefers-reduced-motion: no-preference){
+  .notes-back-transition::view-transition-old(root){animation:280ms cubic-bezier(.22,1,.36,1) both notes-back-old}
+  .notes-back-transition::view-transition-new(root){animation:280ms cubic-bezier(.22,1,.36,1) both notes-back-new}
+}
