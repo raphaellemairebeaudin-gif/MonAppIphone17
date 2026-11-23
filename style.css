@@ -1235,3 +1235,19 @@ input, select, textarea { font-size: 16px; }
 .notes-small-action{border:0;background:transparent;color:var(--sec);width:30px;height:30px;font-size:18px}
 .notes-category-empty{font-size:13px;color:var(--sec);padding:13px 0}
 .notes-section-title{margin:20px 0 8px}
+
+/* Notes : dossiers compacts directement sous la recherche */
+.notes-organizer{padding-top:0}
+.notes-folder-strip{gap:9px;margin:0 -2px 10px;padding:7px 2px 8px}
+.notes-folder-tile{flex:0 0 178px;min-height:65px;border-radius:11px}
+.notes-folder-open{min-height:65px;padding:11px 35px 11px 12px;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px}
+.notes-folder-open i{font-size:23px;flex-shrink:0}
+.notes-folder-open span{font-size:13px;font-weight:600;line-height:1.2}
+.notes-folder-edit{top:17px;right:3px}
+.notes-folder-picker{display:flex;flex-direction:column;gap:3px;padding:6px 0 14px}
+.notes-folder-picker-row,.notes-option-row{display:flex;align-items:center;gap:13px;width:100%;min-height:52px;padding:11px 7px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;font-size:15px}
+.notes-folder-picker-row i:first-child,.notes-option-row i{font-size:21px}
+.notes-folder-picker-row span{flex:1}
+.notes-folder-picker-row i:last-child{font-size:17px;color:var(--sec)}
+.notes-options{padding:5px 0 16px}
+.notes-option-row.danger{color:var(--danger)}
