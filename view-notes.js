@@ -630,7 +630,10 @@ function editor(ctx, id) {
     const width = sizeMenu.offsetWidth;
     const left = Math.max(visibleLeft + 8, Math.min(bounds.left + bounds.width / 2 - width / 2, visibleRight - width - 8));
     sizeMenu.style.left = Math.round(left) + 'px';
-    sizeMenu.style.top = Math.round(bounds.top - sizeMenu.offsetHeight - 4) + 'px';
+    const menuHeight = sizeMenu.offsetHeight;
+    // Toujours juste au-dessus du H, même quand le clavier iOS déplace le viewport.
+    const top = bounds.top - menuHeight - 8;
+    sizeMenu.style.top = Math.round(Math.max((viewport?.offsetTop || 0) + 4, top)) + 'px';
   };
   const tools = [
     ['heading', 'Titre', toggleHeading],
@@ -783,9 +786,12 @@ function editor(ctx, id) {
   }
 
   ctx.main.classList.add('note-editing-host');
-  ctx.main.append(titleIn, editable, status, toolbar, sizeMenu);
+  ctx.main.append(titleIn, editable, status, toolbar);
+  // Hors du conteneur défilant : iOS positionne ainsi le menu en coordonnées écran.
+  document.body.append(sizeMenu);
   ctx.onLeave(() => {
     closeSizeMenu();
+    sizeMenu.remove();
     ctx.main.classList.remove('note-editing-host');
     if (timer) flush();
     cancelAnimationFrame(keyboardFrame);
