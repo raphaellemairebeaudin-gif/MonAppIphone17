@@ -1,5 +1,6 @@
 import * as db from './db.js';
-import { h, field, sheet, num, errMsg } from './ui.js';
+import { h, field, sheet, num, errMsg, fmtMoney } from './ui.js';
+import { balance } from './view-budget-banks.js';
 
 export const meta = { label: 'Budget', icon: 'wallet' };
 
@@ -28,8 +29,15 @@ export function render(ctx) {
         h('span', { class: 'budget-bank-card-type' },
           card.data.type === 'credit' ? 'CRÉDIT' : 'DÉBIT'),
         h('span', { class: 'budget-bank-card-name' }, card.data.name || 'Ma carte'),
-        h('span', { class: 'budget-bank-card-bottom' },
-          card.data.type === 'credit' ? 'Carte de crédit' : 'Carte de débit')
+        card.data.type === 'credit'
+          ? h('span', { class: 'budget-bank-card-finances' },
+              h('span', { class: 'budget-bank-card-amount' }, fmtMoney(balance(card))),
+              h('span', { class: 'budget-bank-card-bottom' }, 'Montant dû'),
+              Number(card.data.limit) > 0 &&
+                h('span', { class: 'budget-bank-card-limit' },
+                  'Limite : ' + fmtMoney(Number(card.data.limit)))
+            )
+          : h('span', { class: 'budget-bank-card-bottom' }, 'Carte de débit')
       )
     ));
     section.replaceChildren(heading,
