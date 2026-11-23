@@ -29,15 +29,15 @@ export function render(ctx) {
         h('span', { class: 'budget-bank-card-type' },
           card.data.type === 'credit' ? 'CRÉDIT' : 'DÉBIT'),
         h('span', { class: 'budget-bank-card-name' }, card.data.name || 'Ma carte'),
-        card.data.type === 'credit'
-          ? h('span', { class: 'budget-bank-card-finances' },
-              h('span', { class: 'budget-bank-card-amount' }, fmtMoney(balance(card))),
-              h('span', { class: 'budget-bank-card-bottom' }, 'Montant dû'),
-              Number(card.data.limit) > 0 &&
-                h('span', { class: 'budget-bank-card-limit' },
-                  'Limite : ' + fmtMoney(Number(card.data.limit)))
-            )
-          : h('span', { class: 'budget-bank-card-bottom' }, 'Carte de débit')
+        h('span', { class: 'budget-bank-card-finances' },
+          h('span', { class: 'budget-bank-card-amount' }, fmtMoney(balance(card))),
+          h('span', { class: 'budget-bank-card-bottom' },
+            card.data.type === 'credit' ? 'Montant dû' : 'Solde disponible'),
+          card.data.type === 'credit' && Number(card.data.limit) > 0
+            ? h('span', { class: 'budget-bank-card-limit' },
+                'Limite : ' + fmtMoney(Number(card.data.limit)))
+            : null
+        )
       )
     ));
     section.replaceChildren(heading,
