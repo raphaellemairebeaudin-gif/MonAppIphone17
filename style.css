@@ -1187,11 +1187,13 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .budget-overview-footnote{margin:1px 0 0;font-size:11px;line-height:1.5;color:var(--sec)}
 
 
-/* Accueil : portrait et nom centrés */
-.home-welcome{min-height:calc(65dvh - env(safe-area-inset-top,0px));display:flex;flex-direction:column;align-items:center;text-align:center;padding:clamp(45px,10vh,100px) 12px 35px;gap:0}
-.home-avatar{width:148px;height:148px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid var(--text);border-radius:50%;background:var(--card);color:var(--text);padding:5px;box-shadow:0 0 0 5px var(--bg),0 0 0 6px var(--line);cursor:pointer}
+/* Accueil compact : espace pour les futurs modules */
+.home-welcome{display:flex;flex-direction:column;align-items:center;text-align:center;padding:25px 12px 18px;gap:0}
+.home-avatar{width:94px;height:94px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid var(--text);border-radius:50%;background:var(--card);color:var(--text);padding:4px;box-shadow:0 0 0 4px var(--bg),0 0 0 5px var(--line);cursor:pointer}
 .home-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
-.home-avatar span{font-size:48px;font-weight:600;letter-spacing:1px}
-.home-name{margin:26px 0 0;font-size:clamp(24px,7vw,32px);font-weight:700;letter-spacing:.2px;overflow-wrap:anywhere}
-.home-photo-hint{font-size:12px;color:var(--sec);margin:11px 0 0}
+.home-avatar span{font-size:30px;font-weight:600;letter-spacing:1px}
+.home-name-button{display:flex;flex-direction:column;align-items:center;gap:2px;margin:17px 0 0;border:0;background:transparent;padding:0 10px;text-align:center;max-width:100%}
+.home-name{font-size:21px;font-weight:700;line-height:1.2;letter-spacing:.2px;overflow-wrap:anywhere}
+.home-surname{font-size:16px;font-weight:500;line-height:1.3;letter-spacing:.4px;overflow-wrap:anywhere}
+.home-name-button:focus-visible,.home-avatar:focus-visible{outline:2px solid var(--text);outline-offset:5px}
 .home-photo-input{display:none}
