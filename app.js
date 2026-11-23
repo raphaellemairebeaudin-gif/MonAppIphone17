@@ -50,6 +50,7 @@ let backHref = null;
 let dataHandler = null;
 let leaveHandler = null;
 let started = false;
+let previousRouteHash = null;
 
 function setMenu(open) { document.body.classList.toggle('menu-open', open); }
 
@@ -139,7 +140,7 @@ function drawDrawer() {
   );
 }
 
-function route() {
+function renderRoute() {
   if (!ui) return;
   if (leaveHandler) { try { leaveHandler(); } catch (e) { /* ignore */ } }
   leaveHandler = null;
@@ -159,6 +160,35 @@ function route() {
   setMenu(false);
 }
 
+function route() {
+  if (!ui) return;
+  const nextHash = location.hash;
+  const previous = previousRouteHash || '';
+  const backFromNote = previous.startsWith('#/notes/') && previous !== '#/notes/all' &&
+    !previous.startsWith('#/notes/folder-') &&
+    (nextHash === '#/notes' || nextHash === '#/notes/');
+  previousRouteHash = nextHash;
+  if (!backFromNote || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    renderRoute();
+    return;
+  }
+  if (typeof document.startViewTransition === 'function') {
+    document.documentElement.classList.add('notes-back-transition');
+    const transition = document.startViewTransition(() => renderRoute());
+    transition.finished.finally(() => document.documentElement.classList.remove('notes-back-transition'));
+  } else {
+    renderRoute();
+    ui.ctx.main.animate([
+      {transform:'translateX(-24px)',opacity:.55},
+      {transform:'translateX(0)',opacity:1}
+    ],{duration:280,easing:'cubic-bezier(.22,1,.36,1)'});
+    root.querySelector('.head')?.animate([
+      {transform:'translateX(-18px)',opacity:.55},
+      {transform:'translateX(0)',opacity:1}
+    ],{duration:280,easing:'cubic-bezier(.22,1,.36,1)'});
+  }
+}
+
 db.onChange(() => {
   if (!ui) return;
   drawDrawer();
@@ -176,6 +206,7 @@ function start(s) {
   if (location.hash !== '#/home') {
     history.replaceState(history.state, '', location.pathname + location.search + '#/home');
   }
+  previousRouteHash = location.hash;
   route();
   if (!started) { window.addEventListener('hashchange', route); started = true; }
   // Afficher immédiatement l'interface depuis les données locales; synchroniser ensuite.
