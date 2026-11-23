@@ -7,7 +7,24 @@ const RICH = 'RICH_HTML:';
 const PREFIX_RE = /^(#{1,3} |- \[[ xX]\] |[-*] |\d+\. |> )/;
 let query = '';
 
-const FOLDER_ICONS = ['folder', 'book', 'briefcase', 'heart', 'star', 'bulb', 'school', 'dumbbell', 'wallet', 'music'];
+const FOLDER_ICONS = [
+  'folder','folder-open','folders','archive','book','book-2','notebook','notes','file-text','files',
+  'briefcase','heart','star','bulb','school','dumbbell','wallet','music','camera','photo',
+  'palette','brush','pencil','calendar','clock','bell','bookmark','tag','home','building',
+  'car','plane','map-pin','world','compass','mountain','sun','moon','cloud','leaf',
+  'plant','flower','paw','gift','shopping-bag','device-laptop','device-mobile','code',
+  'chart-bar','chart-line','calculator','coin','credit-card','pig-money','trophy','target',
+  'flame','bolt','shield','lock','key','user','users','friends','coffee','tools','hammer',
+  'settings','medical-cross','first-aid-kit','apple','chef-hat','ball-football','bike','run'
+];
+const FOLDER_COLORS = [
+  {name:'Par défaut',value:''},{name:'Rouge',value:'#E76F73'},
+  {name:'Orange',value:'#ECA36A'},{name:'Jaune',value:'#E5C76A'},
+  {name:'Vert',value:'#80C99A'},{name:'Menthe',value:'#6DCDBF'},
+  {name:'Bleu',value:'#80B5E8'},{name:'Indigo',value:'#9299ED'},
+  {name:'Violet',value:'#BC97E5'},{name:'Rose',value:'#E99DC1'},
+  {name:'Cuivre',value:'#C39A7A'},{name:'Gris',value:'#A5A8AE'}
+];
 const noteFolders = data => [...new Set([...(Array.isArray(data.folderIds)?data.folderIds:[]),data.folderId].filter(Boolean))];
 const hasFolder = (note,id) => noteFolders(note.data).includes(id);
 async function pruneEmptyFolder(id) {
@@ -28,16 +45,24 @@ function editFolder(existing = null, onCreated = null) {
   sheet(existing ? 'Modifier le dossier' : 'Nouveau dossier', close => {
     const title = h('input', { value: existing?.data.title || '', placeholder:'Nom du dossier' });
     let chosen = existing?.data.icon || 'folder';
+    let chosenColor = existing?.data.color || '';
     const choices = h('div', {class:'notes-icon-picker'});
     const drawChoices = () => choices.replaceChildren(...FOLDER_ICONS.map(key =>
       h('button', {type:'button',class:'notes-icon-choice' + (chosen===key?' selected':''),
         'aria-label':key,onclick:()=>{chosen=key;drawChoices();}},icon(key))));
     drawChoices();
+    const colors = h('div',{class:'notes-color-picker'});
+    const drawColors = () => colors.replaceChildren(...FOLDER_COLORS.map(c=>
+      h('button',{type:'button',class:'notes-color-choice'+(chosenColor===c.value?' selected':''),
+        'aria-label':c.name,title:c.name,style:{'--swatch':c.value||'var(--text)'},
+        onclick:()=>{chosenColor=c.value;drawColors();}},
+        c.value?null:icon('letter-a'))));
+    drawColors();
     const save = async () => {
       const name=title.value.trim();
       if(!name){toast('Entre un nom de dossier.');return;}
       try {
-        if(existing) await db.update(existing.id,{...existing.data,title:name,icon:chosen});
+        if(existing) await db.update(existing.id,{...existing.data,title:name,icon:chosen,color:chosenColor});
         else {
           const created = await db.add('note_folder',{title:name,icon:chosen});
           if (onCreated) await onCreated(created);
@@ -46,6 +71,7 @@ function editFolder(existing = null, onCreated = null) {
       }catch(e){toast(errMsg(e));}
     };
     return h('div',{},field('Nom',title),h('p',{class:'notes-picker-label'},'Icône du dossier'),choices,
+      h('p',{class:'notes-picker-label'},'Couleur de l’icône et du nom'),colors,
       h('div',{class:'btnrow'},h('button',{class:'btn primary',onclick:save},'Enregistrer'),
       existing ? h('button',{class:'btn danger',onclick:async()=>{
         if(!confirm('Supprimer ce dossier ? Les catégories et les notes seront conservées, sans dossier.'))return;
@@ -80,7 +106,7 @@ export function render(ctx,param){
     const strip=h('div',{class:'notes-folder-strip'},
       h('button',{class:'notes-folder-tile notes-folder-all'+(selectedFolderId==='all'?' selected':''),onclick:()=>{selectedFolderId='all';draw();}},icon('layout-grid'),h('span',{},'Tout')),
       ...folders.map(f=>h('div',{class:'notes-folder-tile'+(selectedFolderId===f.id?' selected':'')},
-        h('button',{class:'notes-folder-open',onclick:()=>{selectedFolderId=f.id;draw();}},icon(f.data.icon||'folder'),h('span',{},f.data.title)),
+        h('button',{class:'notes-folder-open',style:f.data.color?{color:f.data.color}:null,onclick:()=>{selectedFolderId=f.id;draw();}},icon(f.data.icon||'folder'),h('span',{},f.data.title)),
         h('button',{class:'notes-folder-edit','aria-label':'Modifier '+f.data.title,onclick:()=>editFolder(f)},icon('dots')))));
     const visible=selectedFolderId==='all'?notes:notes.filter(n=>hasFolder(n,selectedFolderId));
     body.replaceChildren(strip,...(visible.length?visible.map(noteRow):[empty('Aucune note','Touche + pour créer une note.')]));
@@ -855,7 +881,7 @@ function editor(ctx, id) {
         icon('folder-plus'),'Ajouter nouveau dossier'),
       ...db.all('note_folder').filter(f=>noteFolders(data).includes(f.id)).map(f=>
         h('button',{class:'notes-option-row',onclick:()=>{close();openFolderOptions(f);}},
-          icon(f.data.icon||'folder'),f.data.title))));
+          icon(f.data.icon||'folder'),h('span',{style:f.data.color?{color:f.data.color}:null},f.data.title))));
   }
   function drawActions(){
     ctx.setActions([h('button',{class:'icon-btn',type:'button','aria-label':'Options de la note',onclick:()=>{
