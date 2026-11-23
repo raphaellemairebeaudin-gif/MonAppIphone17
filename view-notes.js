@@ -230,129 +230,10 @@ function editor(ctx, id) {
     // Les anciennes listes Markdown deviennent également cochables.
   }
 
-  // Repère purement visuel : ne jamais modifier le DOM éditable ni la sélection.
-  const caretHint = h('span', { class: 'note-caret-hint', 'aria-hidden': 'true', hidden: true }, 'A');
-  let hintFrame = 0;
-  let editingStarted = false;
+  // Le curseur natif d'iOS suffit : aucun caractère flottant ni animation.
   const hintFormat = { bold: null, italic: null, underline: null };
-  const updateCaretHint = () => {
-    caretHint.hidden = true;
-    if (!editingStarted || document.activeElement !== editable) return;
-    const selection = window.getSelection();
-    if (!selection?.rangeCount || !selection.isCollapsed || !editable.contains(selection.anchorNode)) return;
-    const range = selection.getRangeAt(0).cloneRange();
-    let rect = range.getClientRects()[0];
-    if (!rect?.height) rect = range.getBoundingClientRect();
-    // Pour une ligne vide, utiliser la boîte de la ligne, sans insérer de noeud.
-    const node = selection.anchorNode;
-    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-    // Un repère n'a sa place qu'en fin de saisie, jamais devant du texte
-    // existant (même si des espaces séparent le curseur de la lettre).
-    // Inspecter la suite du bloc courant sans modifier la sélection.
-    const lineBlock = element?.closest('li, p, div, h2, h3, h4, blockquote, pre') || editable;
-    try {
-      const afterCaret = document.createRange();
-      afterCaret.selectNodeContents(lineBlock);
-      afterCaret.setStart(range.startContainer, range.startOffset);
-      const remaining = afterCaret.toString();
-      // Ne pas traverser un saut de ligne explicite.
-      const sameLine = remaining.split(/[\r\n]/, 1)[0];
-      if (/\p{L}|\p{N}/u.test(sameLine)) return;
-    } catch (_) {
-      // Certains placements de curseur Safari ne sont pas contenus dans
-      // le bloc détecté : chercher la suite dans l'éditeur entier.
-      const afterCaret = document.createRange();
-      afterCaret.selectNodeContents(editable);
-      afterCaret.setStart(range.startContainer, range.startOffset);
-      const sameLine = afterCaret.toString().split(/[\r\n]/, 1)[0];
-      if (/\p{L}|\p{N}/u.test(sameLine)) return;
-    }
-    if (!rect?.height) {
-      const line = element.closest('li, p, div, h2, h3, h4') || editable;
-      const bounds = line.getBoundingClientRect();
-      const style = getComputedStyle(line);
-      const left = bounds.left + (parseFloat(style.paddingLeft) || 0);
-      rect = { left, top: bounds.top, height: parseFloat(style.lineHeight) || parseFloat(style.fontSize) || 20 };
-    }
-    // Les éléments de liste vides ne fournissent pas toujours un rectangle
-    // de curseur sur iOS : se caler sur le contenu du li, après son marqueur.
-    const listItem = element?.closest('li');
-    if (listItem && editable.contains(listItem) && (!rect?.height || rect.width > 20)) {
-      const bounds = listItem.getBoundingClientRect();
-      const itemStyle = getComputedStyle(listItem);
-      const left = bounds.left + (parseFloat(itemStyle.paddingLeft) || 0);
-      rect = { left, top: bounds.top, height: parseFloat(itemStyle.lineHeight) || parseFloat(itemStyle.fontSize) || 20 };
-    }
-    if (!rect?.height) return;
-    const style = getComputedStyle(element);
-    const bold = hintFormat.bold ?? document.queryCommandState('bold');
-    const italic = hintFormat.italic ?? document.queryCommandState('italic');
-    const underline = hintFormat.underline ?? document.queryCommandState('underline');
-    // Afficher la dernière lettre située avant le curseur, ou A par défaut.
-    // Ne jamais insérer ce caractère dans la note.
-    const beforeCaret = document.createRange();
-    beforeCaret.selectNodeContents(editable);
-    beforeCaret.setEnd(range.startContainer, range.startOffset);
-    const precedingText = beforeCaret.toString();
-    const lastLine = precedingText.split(/[\r\n]/).pop() || '';
-    const letters = lastLine.match(/\p{L}/gu);
-    caretHint.textContent = letters?.length ? letters[letters.length - 1] : 'A';
-    // Coordonnées dans le contenu de main, pas dans la fenêtre :
-    // le repère défile avec la note sans se détacher de sa ligne.
-    const hostRect = ctx.main.getBoundingClientRect();
-    caretHint.style.left = Math.round(rect.left - hostRect.left + ctx.main.scrollLeft + 2) + 'px';
-    const fontSize = parseFloat(style.fontSize) || 16;
-    const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.2;
-    const verticalInset = Math.max(0, (lineHeight - fontSize) / 2);
-    // Remonter légèrement le repère pour aligner sa ligne de base sur le texte.
-    caretHint.style.top = Math.round(rect.top - hostRect.top + ctx.main.scrollTop + verticalInset - 3) + 'px';
-    caretHint.style.fontFamily = style.fontFamily;
-    caretHint.style.fontSize = style.fontSize;
-    caretHint.style.lineHeight = '1';
-    caretHint.style.fontWeight = bold ? '700' : '400';
-    caretHint.style.fontStyle = italic ? 'italic' : 'normal';
-    caretHint.style.textDecoration = underline ? 'underline' : 'none';
-    caretHint.hidden = false;
-  };
-  const scheduleCaretHint = () => {
-    cancelAnimationFrame(hintFrame);
-    hintFrame = requestAnimationFrame(updateCaretHint);
-  };
+  const scheduleCaretHint = () => {};
   const resetHintFormat = () => { hintFormat.bold = null; hintFormat.italic = null; hintFormat.underline = null; };
-  const beginEditing = () => { editingStarted = true; scheduleCaretHint(); };
-  // La saisie, les espaces et les changements de ligne ne désactivent
-  // jamais les options choisies explicitement par l'utilisateur.
-  editable.addEventListener('pointerdown', beginEditing);
-  editable.addEventListener('keydown', beginEditing);
-  editable.addEventListener('input', beginEditing);
-  editable.addEventListener('focus', scheduleCaretHint);
-  editable.addEventListener('blur', () => { editingStarted = false; caretHint.hidden = true; });
-  editable.addEventListener('keyup', scheduleCaretHint);
-  editable.addEventListener('pointerup', scheduleCaretHint);
-  // Au changement d'application, masquer le repère sans perdre sa position.
-  // Au retour, recalculer sa place après la restauration du viewport iOS.
-  const onAppVisibility = () => {
-    cancelAnimationFrame(hintFrame);
-    if (document.visibilityState !== 'visible') {
-      caretHint.hidden = true;
-      return;
-    }
-    if (editingStarted && document.activeElement === editable) {
-      requestAnimationFrame(() => requestAnimationFrame(scheduleCaretHint));
-    } else {
-      caretHint.hidden = true;
-    }
-  };
-  const onPageShow = () => {
-    if (document.visibilityState === 'visible' && editingStarted && document.activeElement === editable)
-      requestAnimationFrame(() => requestAnimationFrame(scheduleCaretHint));
-  };
-  document.addEventListener('visibilitychange', onAppVisibility);
-  window.addEventListener('pageshow', onPageShow);
-  document.addEventListener('selectionchange', scheduleCaretHint);
-  window.addEventListener('scroll', scheduleCaretHint, true);
-  window.visualViewport?.addEventListener('scroll', scheduleCaretHint);
-  window.visualViewport?.addEventListener('resize', scheduleCaretHint);
   const toolbar = h('div', { class: 'toolbar note-keyboard-toolbar' });
   editable.addEventListener('change', (e) => {
     if (e.target.matches('input[type="checkbox"]')) {
@@ -422,7 +303,7 @@ function editor(ctx, id) {
   function changed() {
     status.textContent = 'Modification…';
     clearTimeout(timer);
-    timer = setTimeout(flush, 600);
+    timer = setTimeout(flush, 950);
   }
   function flush() {
     clearTimeout(timer);
@@ -901,19 +782,12 @@ function editor(ctx, id) {
   }
 
   ctx.main.classList.add('note-editing-host');
-  ctx.main.append(titleIn, editable, status, toolbar, sizeMenu, caretHint);
+  ctx.main.append(titleIn, editable, status, toolbar, sizeMenu);
   ctx.onLeave(() => {
     closeSizeMenu();
     ctx.main.classList.remove('note-editing-host');
     if (timer) flush();
     cancelAnimationFrame(keyboardFrame);
-    cancelAnimationFrame(hintFrame);
-    document.removeEventListener('visibilitychange', onAppVisibility);
-    window.removeEventListener('pageshow', onPageShow);
-    document.removeEventListener('selectionchange', scheduleCaretHint);
-    window.removeEventListener('scroll', scheduleCaretHint, true);
-    window.visualViewport?.removeEventListener('scroll', scheduleCaretHint);
-    window.visualViewport?.removeEventListener('resize', scheduleCaretHint);
     window.visualViewport?.removeEventListener('resize', positionToolbar);
     window.visualViewport?.removeEventListener('scroll', positionToolbar);
     window.removeEventListener('resize', positionToolbar);
