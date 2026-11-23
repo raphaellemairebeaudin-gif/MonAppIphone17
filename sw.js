@@ -1,5 +1,5 @@
 
-const CACHE = 'mon-app-safearea-v110';
+const CACHE = 'mon-app-safearea-v111';
 const SHELL = [
   './', 'index.html', 'manifest.json', 'style.css', 'config.js', 'db.js', 'ui.js', 'app.js',
   'view-train.js', 'view-notes.js', 'view-budget.js', 'view-budget-extra.js', 'view-budget-banks.js', 'view-supp.js', 'view-profile.js', 'view-settings.js',
