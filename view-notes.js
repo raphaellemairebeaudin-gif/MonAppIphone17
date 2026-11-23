@@ -714,16 +714,14 @@ function editor(ctx, id) {
   const positionToolbar = () => {
     if (!toolbar.isConnected || document.hidden) return;
     const vp = window.visualViewport;
-    const bodyRect = document.body.getBoundingClientRect();
     const viewportBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
     // Les coordonnées du body fixe sont utilisées pour éviter le décalage
     // entre layout viewport et visual viewport après une reprise iOS.
-    const visibleBottom = viewportBottom - bodyRect.top;
+    const visibleBottom = viewportBottom;
     const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
     const keyboardOpen = layoutHeight - viewportBottom > 100;
     toolbar.classList.toggle('keyboard-visible', keyboardOpen);
-    const top = Math.max(0, Math.min(bodyRect.height - toolbar.offsetHeight,
-      visibleBottom - toolbar.offsetHeight));
+    const top = Math.max(0, visibleBottom - toolbar.offsetHeight);
     const nextTop = Math.round(top) + 'px';
     if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
     positionSizeMenu();
@@ -755,7 +753,7 @@ function editor(ctx, id) {
       if (document.hidden || !toolbar.isConnected) return;
       const vp = window.visualViewport;
       const geometry = [vp?.height, vp?.offsetTop, window.innerHeight,
-        document.documentElement.clientHeight, document.body.getBoundingClientRect().top].join(':');
+        document.documentElement.clientHeight].join(':');
       if (geometry !== lastKeyboardGeometry) {
         lastKeyboardGeometry = geometry;
         positionToolbar();
@@ -839,12 +837,16 @@ function editor(ctx, id) {
   }
 
   ctx.main.classList.add('note-editing-host');
-  ctx.main.append(titleIn, editable, status, toolbar);
+  ctx.main.append(titleIn, editable, status);
+  // Le clavier et la barre restent dans le repère écran : le glissement
+  // interactif transforme #app, donc la barre ne doit pas être son enfant.
+  document.body.append(toolbar);
   // Hors du conteneur défilant : iOS positionne ainsi le menu en coordonnées écran.
   document.body.append(sizeMenu);
   ctx.onLeave(() => {
     closeSizeMenu();
     sizeMenu.remove();
+    toolbar.remove();
     ctx.main.classList.remove('note-editing-host');
     if (timer) flush();
     clearKeyboardRecovery();
