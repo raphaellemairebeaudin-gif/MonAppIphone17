@@ -173,7 +173,9 @@ function start(s) {
   }
   route();
   if (!started) { window.addEventListener('hashchange', route); started = true; }
-  db.refresh().then(() => window.finishLaunch?.()).catch(() => window.finishLaunch?.());
+  // Afficher immédiatement l'interface depuis les données locales; synchroniser ensuite.
+  window.finishLaunch?.();
+  db.refresh().catch(() => {});
 }
 
 function showLogin() {
