@@ -54,47 +54,112 @@ let previousRouteHash = null;
 
 function setMenu(open) { document.body.classList.toggle('menu-open', open); }
 
-let touchStartX = null;
-let touchStartY = null;
-let touchStartTime = 0;
+let gesture = null;
+let skipNoteBackAnimation = false;
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+const isNoteEditor = () => current === 'notes' && location.hash.startsWith('#/notes/') &&
+  !location.hash.startsWith('#/notes/folder-') && location.hash !== '#/notes/all';
 
-document.addEventListener('touchstart', (e) => {
-  if (!ui || e.touches.length !== 1) { touchStartX = null; return; }
-  if (document.querySelector('.sheet-wrap.open') || e.target.closest('.toolbar, .budget-cards-scroll')) {
-    touchStartX = null;
-    return;
+function clearGesture() {
+  document.body.classList.remove('gesture-dragging', 'gesture-note-back', 'gesture-menu');
+  document.documentElement.style.removeProperty('--gesture-x');
+  document.documentElement.style.removeProperty('--drawer-progress');
+  document.getElementById('notes-swipe-preview')?.remove();
+  gesture = null;
+}
+function noteSwipePreview() {
+  const preview = h('div', { id: 'notes-swipe-preview', 'aria-hidden': 'true' },
+    h('div', { class: 'notes-swipe-heading' }, h('span', {}, 'Notes'),
+      h('span', { class: 'notes-swipe-sub' }, db.all('note').length + ' notes')));
+  const notes = db.all('note').slice().sort((a, b) =>
+    Number(!!b.data.pinned) - Number(!!a.data.pinned) ||
+    (b.updated_at || '').localeCompare(a.updated_at || ''));
+  for (const n of notes.slice(0, 15)) {
+    preview.append(h('div', { class: 'notes-swipe-row' },
+      h('strong', {}, n.data.title || 'Sans titre')));
   }
-  const [touch] = e.touches;
-  if (!touch) return;
-  touchStartX = touch.clientX;
-  touchStartY = touch.clientY;
-  touchStartTime = Date.now();
+  document.body.append(preview);
+}
+document.addEventListener('touchstart', e => {
+  if (!ui || e.touches.length !== 1 || gesture) return;
+  if (document.querySelector('.sheet-wrap.open') ||
+      e.target.closest('.toolbar, .budget-cards-scroll, .notes-folder-strip, input[type=range]')) return;
+  const t = e.touches[0];
+  const menuOpen = document.body.classList.contains('menu-open');
+  const note = isNoteEditor() && !menuOpen;
+  // Les gestes de retour/menu commencent sur le bord pour ne pas gêner
+  // la sélection de texte, les listes horizontales et le défilement.
+  if (!menuOpen && t.clientX > 48) return;
+  gesture = { id: t.identifier, startX: t.clientX, startY: t.clientY,
+    x: t.clientX, mode: menuOpen ? 'close' : note ? 'note' : 'open',
+    active: false, width: 0, progress: 0 };
 }, { passive: true });
-
-document.addEventListener('touchend', (e) => {
-  if (touchStartX === null || !ui || !e.changedTouches.length) return;
-  const [touch] = e.changedTouches;
-  if (!touch) return;
-  const dx = touch.clientX - touchStartX;
-  const dy = touch.clientY - touchStartY;
-  const dt = Date.now() - touchStartTime;
-  touchStartX = null;
-
-  if (dt > 600 || Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-
-  const isOpen = document.body.classList.contains('menu-open');
-  const editingNote = current === 'notes' && /^#\/notes\/(?!folder-|all(?:$|\/))/.test(location.hash);
-  if (dx > 0 && !isOpen) {
-    if (editingNote) {
-      // Dans l'éditeur, glisser de gauche à droite revient à la liste des notes.
-      // Le routeur déclenche ensuite onLeave pour enregistrer les changements.
-      location.hash = '#/notes';
-    } else {
-      setMenu(true);
+document.addEventListener('touchmove', e => {
+  if (!gesture) return;
+  const t = [...e.touches].find(t => t.identifier === gesture.id);
+  if (!t) return;
+  const dx = t.clientX - gesture.startX;
+  const dy = t.clientY - gesture.startY;
+  if (!gesture.active) {
+    if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 9) {
+      if (Math.abs(dy) > 12) gesture = null;
+      return;
     }
+    if (gesture.mode !== 'close' && dx < 0) { gesture = null; return; }
+    if (gesture.mode === 'close' && dx > 0) { gesture = null; return; }
+    gesture.active = true;
+    if (gesture.mode === 'note') {
+      noteSwipePreview();
+      document.body.classList.add('gesture-note-back');
+    } else {
+      document.body.classList.add('gesture-menu');
+    }
+    document.body.classList.add('gesture-dragging');
+    gesture.width = gesture.mode === 'note' ? window.innerWidth :
+      ui.drawer.getBoundingClientRect().width;
   }
-  else if (dx < 0 && isOpen) setMenu(false);
+  if (e.cancelable) e.preventDefault();
+  const width = gesture.width || 1;
+  const progress = gesture.mode === 'close' ? clamp(1 + dx / width, 0, 1) :
+    clamp(dx / width, 0, 1);
+  gesture.progress = progress;
+  document.documentElement.style.setProperty('--drawer-progress', progress);
+  document.documentElement.style.setProperty('--gesture-x', (progress * width) + 'px');
+}, { passive: false });
+function finishGesture(cancelled = false) {
+  if (!gesture) return;
+  const g = gesture;
+  if (!g.active) { gesture = null; return; }
+  const commit = !cancelled && (g.mode === 'close' ? g.progress < .55 : g.progress > .42);
+  document.body.classList.remove('gesture-dragging');
+  if (g.mode === 'note') {
+    if (commit) {
+      // Finir le glissement avec le doigt avant de remplacer l'éditeur.
+      document.documentElement.style.setProperty('--gesture-x', window.innerWidth + 'px');
+      setTimeout(() => {
+        skipNoteBackAnimation = true;
+        clearGesture();
+        location.hash = '#/notes';
+      }, 180);
+    } else {
+      document.documentElement.style.setProperty('--gesture-x', '0px');
+      setTimeout(clearGesture, 210);
+    }
+  } else {
+    document.documentElement.style.setProperty('--drawer-progress', commit ?
+      (g.mode === 'close' ? 0 : 1) : (g.mode === 'close' ? 1 : 0));
+    setTimeout(() => {
+      setMenu(commit ? g.mode === 'open' : g.mode === 'close');
+      clearGesture();
+    }, 210);
+  }
+  gesture = null;
+}
+document.addEventListener('touchend', e => {
+  if (!gesture || ![...e.changedTouches].some(t => t.identifier === gesture.id)) return;
+  finishGesture();
 }, { passive: true });
+document.addEventListener('touchcancel', () => finishGesture(true), { passive: true });
 
 function buildShell() {
   const menuBtn = h('button', {
@@ -168,6 +233,11 @@ function route() {
     !previous.startsWith('#/notes/folder-') &&
     (nextHash === '#/notes' || nextHash === '#/notes/');
   previousRouteHash = nextHash;
+  if (skipNoteBackAnimation) {
+    skipNoteBackAnimation = false;
+    renderRoute();
+    return;
+  }
   if (!backFromNote || matchMedia('(prefers-reduced-motion: reduce)').matches) {
     renderRoute();
     return;
