@@ -1,8 +1,8 @@
 
-const CACHE = 'mon-app-safearea-v51';
+const CACHE = 'mon-app-safearea-v52';
 const SHELL = [
   './', 'index.html', 'manifest.json', 'style.css', 'config.js', 'db.js', 'ui.js', 'app.js',
-  'view-train.js', 'view-notes.js', 'view-budget.js', 'view-supp.js', 'view-profile.js', 'view-settings.js',
+  'view-train.js', 'view-notes.js', 'view-budget.js', 'view-budget-extra.js', 'view-supp.js', 'view-profile.js', 'view-settings.js',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'
 ];
 
