@@ -105,7 +105,7 @@ export function render(ctx,param){
     ctx.setHead('Notes',allNotes.length+' note'+(allNotes.length>1?'s':''));
     const strip=h('div',{class:'notes-folder-strip'},
       h('button',{class:'notes-folder-tile notes-folder-all'+(selectedFolderId==='all'?' selected':''),onclick:()=>{selectedFolderId='all';draw();}},icon('layout-grid'),h('span',{},'Tout')),
-      ...folders.map(f=>h('div',{class:'notes-folder-tile'+(selectedFolderId===f.id?' selected':''),style:f.data.color?{'--folder-accent':f.data.color}:null},
+      ...folders.map(f=>h('div',{class:'notes-folder-tile'+(selectedFolderId===f.id?' selected':''),style:(selectedFolderId===f.id&&f.data.color)?{borderColor:f.data.color,boxShadow:'inset 0 0 0 1px '+f.data.color}:null},
         h('button',{class:'notes-folder-open',style:f.data.color?{color:f.data.color}:null,onclick:()=>{selectedFolderId=f.id;draw();}},icon(f.data.icon||'folder'),h('span',{},f.data.title)),
         h('button',{class:'notes-folder-edit','aria-label':'Modifier '+f.data.title,onclick:()=>editFolder(f)},icon('dots')))));
     const visible=(selectedFolderId==='all'?notes:notes.filter(n=>hasFolder(n,selectedFolderId))).sort(sortUpdated);
