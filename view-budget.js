@@ -24,10 +24,16 @@ export function render(ctx) {
       class: 'budget-cards-scroll',
       role: 'region', 'aria-label': 'Mes cartes', tabindex: '0'
     }, ...cards.map(card =>
-      h('button', { type: 'button', class: 'budget-bank-card',
-        onclick: () => cardSheet(draw, card) },
-        h('span', { class: 'budget-bank-card-type' },
-          card.data.type === 'credit' ? 'CRÉDIT' : 'DÉBIT'),
+      h('div', { class: 'budget-bank-card' },
+        h('div', { class: 'budget-bank-card-top' },
+          h('span', { class: 'budget-bank-card-type' },
+            card.data.type === 'credit' ? 'CRÉDIT' : 'DÉBIT'),
+          h('button', {
+            type: 'button', class: 'budget-bank-card-edit',
+            'aria-label': 'Modifier ' + (card.data.name || 'la carte'),
+            onclick: () => cardSheet(draw, card)
+          }, '⋯')
+        ),
         h('span', { class: 'budget-bank-card-name' }, card.data.name || 'Ma carte'),
         h('span', { class: 'budget-bank-card-finances' },
           h('span', { class: 'budget-bank-card-amount' }, fmtMoney(balance(card))),
