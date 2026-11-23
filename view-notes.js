@@ -9,7 +9,7 @@ let query = '';
 
 const FOLDER_ICONS = [
   'folder','folder-open','folders','archive','book','book-2','notebook','notes','file-text','files',
-  'briefcase','heart','star','bulb','school','dumbbell','wallet','music','camera','photo',
+  'briefcase','heart','star','bulb','school','wallet','music','camera','photo',
   'palette','brush','pencil','calendar','clock','bell','bookmark','tag','home','building',
   'car','plane','map-pin','world','compass','mountain','sun','moon','cloud','leaf',
   'plant','flower','paw','gift','shopping-bag','device-laptop','device-mobile','code',
