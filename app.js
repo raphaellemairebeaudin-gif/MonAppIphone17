@@ -82,10 +82,15 @@ document.addEventListener('touchend', (e) => {
   if (dt > 600 || Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
 
   const isOpen = document.body.classList.contains('menu-open');
+  const editingNote = current === 'notes' && /^#\/notes\/(?!folder-|all(?:$|\/))/.test(location.hash);
   if (dx > 0 && !isOpen) {
-    // Un glissement vers la droite ouvre toujours le menu, même dans une note.
-    // Ne jamais déclencher un retour de page par ce geste.
-    setMenu(true);
+    if (editingNote) {
+      // Dans l'éditeur, glisser de gauche à droite revient à la liste des notes.
+      // Le routeur déclenche ensuite onLeave pour enregistrer les changements.
+      location.hash = '#/notes';
+    } else {
+      setMenu(true);
+    }
   }
   else if (dx < 0 && isOpen) setMenu(false);
 }, { passive: true });
