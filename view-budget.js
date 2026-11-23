@@ -1,4 +1,5 @@
 import * as db from './db.js';
+import { bankSection } from './view-budget-banks.js';
 import { salarySection, investmentSection } from './view-budget-extra.js';
 import { h, icon, seg, sheet, field, row, empty, today, fmtDate, fmtMoney, num, toast, errMsg } from './ui.js';
 
@@ -71,7 +72,7 @@ export function render(ctx) {
         ...vacationPay.map((p) => row('Paiement de vacances CCQ', fmtDate(p.data.date), h('span', { class: 'pos' }, '+' + fmtMoney(p.data.amount)))))
       : empty('Aucune transaction', 'Touche + pour ajouter une dépense ou un revenu.');
 
-    body.replaceChildren(...[card, tiles, salarySection(ym), investmentSection(), catBox, list].filter(Boolean));
+    body.replaceChildren(...[card, tiles, salarySection(ym), bankSection(), investmentSection(), catBox, list].filter(Boolean));
   }
   ctx.onData(draw);
   draw();
