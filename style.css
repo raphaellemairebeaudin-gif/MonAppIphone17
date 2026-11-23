@@ -1209,3 +1209,29 @@ input, select, textarea { font-size: 16px; }
 .landscape-guard-content h2{font-size:25px;letter-spacing:.3px;font-weight:500}
 .landscape-guard-content p{font:14px/1.5 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#bcbab4}
 @media (orientation:landscape) and (max-height:600px){#landscape-guard{display:flex!important}}
+
+/* Notes : dossiers horizontaux et catégories verticales */
+.notes-organizer{padding-top:6px}
+.notes-section-heading,.notes-category-heading{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.notes-section-heading{margin:16px 0 11px}
+.notes-section-heading h2,.notes-section-title{font-size:17px;font-weight:650;letter-spacing:.1px}
+.notes-text-action{border:0;background:transparent;color:var(--text);display:flex;align-items:center;gap:5px;font-size:13px;padding:8px 0}
+.notes-folder-strip{display:flex;gap:11px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding:4px 2px 14px;margin:0 -2px 13px;scrollbar-width:none}
+.notes-folder-strip::-webkit-scrollbar{display:none}
+.notes-folder-tile{position:relative;flex:0 0 132px;min-height:116px;scroll-snap-align:start;border:1px solid var(--line);border-radius:13px;background:var(--card);overflow:hidden}
+.notes-folder-open{width:100%;height:100%;min-height:116px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 12px 13px;border:0;background:transparent;text-align:left}
+.notes-folder-open i{font-size:26px}
+.notes-folder-open span{font-size:14px;font-weight:600;line-height:1.25;overflow-wrap:anywhere;max-width:100%}
+.notes-folder-edit{position:absolute;right:5px;top:5px;border:0;background:transparent;width:28px;height:28px;border-radius:50%;color:var(--sec)}
+.notes-folder-create{flex:0 0 115px;min-height:116px;border:1px dashed var(--sec);border-radius:13px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;font-size:13px;color:var(--sec)}
+.notes-folder-create i{font-size:25px}
+.notes-icon-picker{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:10px 0 18px}
+.notes-icon-choice{height:48px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:22px}
+.notes-icon-choice.selected{border:2px solid var(--text)}
+.notes-picker-label{font-size:13px;color:var(--sec);margin-top:14px}
+.notes-category{margin:12px 0 24px}
+.notes-category-heading{border-bottom:1px solid var(--line);padding:8px 0 10px}
+.notes-category-heading h3{flex:1;font-size:16px;font-weight:650;overflow-wrap:anywhere}
+.notes-small-action{border:0;background:transparent;color:var(--sec);width:30px;height:30px;font-size:18px}
+.notes-category-empty{font-size:13px;color:var(--sec);padding:13px 0}
+.notes-section-title{margin:20px 0 8px}
