@@ -54,7 +54,7 @@ function editFolder(existing = null, onCreated = null) {
     const colors = h('div',{class:'notes-color-picker'});
     const drawColors = () => colors.replaceChildren(...FOLDER_COLORS.map(c=>
       h('button',{type:'button',class:'notes-color-choice'+(chosenColor===c.value?' selected':''),
-        'aria-label':c.name,title:c.name,style:{'--swatch':c.value||'var(--text)'},
+        'aria-label':c.name,title:c.name,style:{backgroundColor:c.value||'var(--card)'},
         onclick:()=>{chosenColor=c.value;drawColors();}},
         c.value?null:icon('letter-a'))));
     drawColors();
