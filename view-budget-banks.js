@@ -9,7 +9,7 @@ const balance=a=>{
   ...events(a.id).map(e=>({date:e.data.date,created:e.created_at,id:e.id,type:e.data.type,amount:Number(e.data.amount)})),
   ...transfers().filter(t=>t.data.fromId===a.id||t.data.toId===a.id).map(t=>({
    date:t.data.date,created:t.created_at,id:t.id,type:'transfer',
-   amount:Number(t.data.amount)*(t.data.fromId===a.id?-1:1)
+   amount:Number(t.data.amount)*(t.data.fromId===a.id?-1:(a.data.type==='credit'?-1:1))
   }))
  ].sort((x,y)=>x.date.localeCompare(y.date)||x.created.localeCompare(y.created)||x.id.localeCompare(y.id));
  return operations.reduce((v,e)=>e.type==='balance'?e.amount:v+(e.type==='transfer'?e.amount:(e.type==='increase'?1:-1)*e.amount),Number(a.data.openingBalance||0));
