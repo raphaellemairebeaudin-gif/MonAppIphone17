@@ -110,7 +110,7 @@ export function render(ctx, param) {
       }
       return;
     }
-    ctx.setHead(folder.data.title,'');
+    ctx.setHead(folder.data.title,'',{back:'#/notes'});
     const categories=db.all('note_category').filter(c=>c.data.folderId===folder.id)
       .sort((a,b)=>a.created_at.localeCompare(b.created_at));
     const content=[h('div',{class:'notes-section-heading'},h('h2',{},'Catégories'),
@@ -870,6 +870,29 @@ function editor(ctx, id) {
 
   function drawActions() {
     ctx.setActions([
+      h('button', { class:'icon-btn', type:'button', 'aria-label':'Classer la note', onclick:()=>{
+        sheet('Classer la note', close=>{
+          const folders=db.all('note_folder');
+          const folderSelect=h('select',{},
+            h('option',{value:''},'Sans dossier'),
+            ...folders.map(f=>h('option',{value:f.id},f.data.title)));
+          folderSelect.value=data.folderId||'';
+          const categorySelect=h('select');
+          const refreshCategories=()=>{
+            const cats=db.all('note_category').filter(c=>c.data.folderId===folderSelect.value);
+            categorySelect.replaceChildren(h('option',{value:''},'Sans catégorie'),
+              ...cats.map(c=>h('option',{value:c.id},c.data.title)));
+            categorySelect.value=cats.some(c=>c.id===data.categoryId)?data.categoryId:'';
+          };
+          folderSelect.addEventListener('change',refreshCategories);refreshCategories();
+          return h('div',{},field('Dossier',folderSelect),field('Catégorie',categorySelect),
+            h('button',{class:'btn primary',onclick:async()=>{
+              data.folderId=folderSelect.value||null;
+              data.categoryId=categorySelect.value||null;
+              try{await flush();close();toast('Note classée.');}catch(e){toast(errMsg(e));}
+            }},'Enregistrer'));
+        });
+      } }, icon('folder')),
       h('button', { class: 'icon-btn' + (data.pinned ? ' on' : ''), type: 'button', 'aria-label': 'Épingler', onclick: () => {
         data.pinned = !data.pinned; flush(); drawActions(); toast(data.pinned ? 'Note épinglée' : 'Note désépinglée');
       } }, icon('pin')),
