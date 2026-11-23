@@ -1052,7 +1052,7 @@ html, body, #app, .drawer { background-color: var(--bg); }
 /* Budget mobile : navigation claire, montants lisibles, boutons sans écrasement. */
 .budget-tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:2px -20px 18px;padding:6px 20px 10px;scroll-snap-type:x proximity}
 .budget-tabs::-webkit-scrollbar{display:none}
-.budget-tab{flex:0 0 auto;min-height:44px;padding:10px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);font-size:14px;font-weight:600;white-space:nowrap;scroll-snap-align:start}
+.budget-tab{flex:0 0 auto;min-height:44px;padding:10px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);font-size:14px;font-weight:600;white-space:nowrap;scroll-snap-align:center;scroll-snap-stop:always}
 .budget-tab.active{background:var(--text);color:var(--bg);border-color:var(--text)}
 .budget-content{min-width:0;padding:4px 0 28px}
 .budget-content>section{min-width:0;margin:8px 0 24px}
@@ -1099,7 +1099,7 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .budget-cards-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .budget-cards-heading h2{font-size:19px;font-weight:650;letter-spacing:-.3px}
 .budget-card-add{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:9px 13px;min-height:40px;font-size:14px;font-weight:600;white-space:nowrap}
-.budget-cards-scroll{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -20px;padding:2px 20px 16px}
+.budget-cards-scroll{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:calc((100% - min(78vw,285px))/2);-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -20px;padding:2px calc((100% - min(78vw,285px))/2) 16px}
 .budget-cards-scroll::-webkit-scrollbar{display:none}
 .budget-bank-card{flex:0 0 min(78vw,285px);min-height:165px;display:flex;flex-direction:column;align-items:flex-start;text-align:left;justify-content:space-between;padding:19px;border:1px solid var(--line);border-radius:17px;background:var(--card);color:var(--text);scroll-snap-align:start}
 .budget-bank-card:active{transform:scale(.99)}
