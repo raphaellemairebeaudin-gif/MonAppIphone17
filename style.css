@@ -1271,3 +1271,6 @@ input, select, textarea { font-size: 16px; }
 .notes-color-choice:first-child{background:var(--card);border:1px solid var(--line);color:var(--text)}
 .notes-color-choice.selected{outline:2px solid var(--text);outline-offset:3px}
 .notes-color-choice i{font-size:18px}
+
+/* Menu H ancré au-dessus du bouton dans le body fixe iOS */
+.note-size-menu{position:absolute;z-index:1000;max-height:min(280px,45dvh);overflow-y:auto;overscroll-behavior:contain}
