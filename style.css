@@ -1201,3 +1201,11 @@ html, body, #app, .drawer { background-color: var(--bg); }
 /* Conserver le défilement et les interactions sans zoom tactile. */
 html, body, #app { touch-action: pan-x pan-y; }
 input, select, textarea { font-size: 16px; }
+
+/* Écran paysage : masque l’interface sans la démonter ni perdre les saisies. */
+#landscape-guard{display:none;position:fixed;inset:0;z-index:2147483647;background:#101111;color:#f2f0eb;align-items:center;justify-content:center;text-align:center;padding:24px;padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));font-family:Georgia,'Times New Roman',serif}
+.landscape-guard-content{max-width:340px;display:flex;flex-direction:column;align-items:center;gap:13px}
+.landscape-guard-symbol{width:62px;height:62px;border:1px solid #777670;border-radius:50%;display:flex;align-items:center;justify-content:center;font:38px/1 system-ui,sans-serif;margin-bottom:8px}
+.landscape-guard-content h2{font-size:25px;letter-spacing:.3px;font-weight:500}
+.landscape-guard-content p{font:14px/1.5 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#bcbab4}
+@media (orientation:landscape) and (max-height:600px){#landscape-guard{display:flex!important}}
