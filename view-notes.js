@@ -64,7 +64,7 @@ function editFolder(existing = null, onCreated = null) {
       try {
         if(existing) await db.update(existing.id,{...existing.data,title:name,icon:chosen,color:chosenColor});
         else {
-          const created = await db.add('note_folder',{title:name,icon:chosen});
+          const created = await db.add('note_folder',{title:name,icon:chosen,color:chosenColor});
           if (onCreated) await onCreated(created);
         }
         close();
