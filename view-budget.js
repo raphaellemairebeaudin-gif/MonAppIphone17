@@ -1,5 +1,5 @@
 import * as db from './db.js';
-import { h, field, sheet, seg } from './ui.js';
+import { h, field, sheet } from './ui.js';
 
 export const meta = { label: 'Budget', icon: 'wallet' };
 
@@ -32,21 +32,15 @@ function openAddMenu() {
       const credit = accounts().filter(a => a.data.type === 'credit');
       if (kind === 'pay') {
         details.replaceChildren(
-          field('Carte de crédit', selectAccounts(credit, 'Choisir une carte de crédit'))
+          field('Carte de débit', selectAccounts(checking, 'Choisir une carte de débit'))
         );
       } else if (kind === 'transaction') {
-        const paymentDetails = h('div');
-        const drawPayment = type => {
-          paymentDetails.replaceChildren(field(
-            type === 'debit' ? 'Compte de débit' : 'Carte de crédit',
-            selectAccounts(type === 'debit' ? checking : credit, 'Choisir un compte')
-          ));
-        };
         details.replaceChildren(
-          seg([['debit', 'Carte de débit'], ['credit', 'Carte de crédit']], 'debit', drawPayment),
-          paymentDetails
+          field('Carte', selectAccounts(
+            [...checking, ...credit],
+            'Choisir une carte de débit ou de crédit'
+          ))
         );
-        drawPayment('debit');
       } else if (kind === 'credit_payment') {
         details.replaceChildren(
           field('Compte de débit', selectAccounts(checking, 'Choisir un compte de débit')),
