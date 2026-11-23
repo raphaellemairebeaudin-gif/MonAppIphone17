@@ -23,21 +23,52 @@
 })();
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+/* Écran de démarrage autonome, visible avant le chargement des feuilles externes. */
+#launch-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#101111;color:#f2f0eb;font-family:Georgia,'Times New Roman',serif;transition:opacity .38s ease,visibility .38s ease}
+#launch-screen.done{opacity:0;visibility:hidden;pointer-events:none}
+#launch-screen .launch-inner{display:flex;flex-direction:column;align-items:center;gap:24px;transform:translateY(-12px)}
+#launch-screen .launch-symbol{width:64px;height:64px;display:flex;align-items:center;justify-content:center;border:1px solid #74736e;border-radius:50%;font-size:35px;font-weight:400;line-height:1;letter-spacing:-3px}
+#launch-screen .launch-rule{width:90px;height:1px;background:linear-gradient(90deg,transparent,#b4b1a9,transparent);transform-origin:center;animation:launch-breathe 1.7s ease-in-out infinite}
+#launch-screen .launch-label{font:10px/1.5 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;letter-spacing:3px;color:#a7a59f;text-transform:uppercase}
+#launch-screen .launch-error{max-width:270px;text-align:center;font:13px/1.6 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#e5e2db}
+#launch-screen .launch-retry{border:1px solid #8c8981;background:transparent;color:#f2f0eb;padding:10px 20px;border-radius:4px;font:13px system-ui}
+@keyframes launch-breathe{0%,100%{transform:scaleX(.45);opacity:.4}50%{transform:scaleX(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){#launch-screen .launch-rule{animation:none}#launch-screen{transition:none}}
+</style>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="launch-screen" role="status" aria-live="polite"><div class="launch-inner"><div class="launch-symbol" aria-hidden="true">✦</div><div class="launch-rule"></div><div class="launch-label">Chargement</div></div></div>
+<script>
+(function(){
+ var launch=document.getElementById('launch-screen');
+ var started=Date.now(),minimum=550,finished=false;
+ window.finishLaunch=function(){
+  if(finished)return;finished=true;
+  setTimeout(function(){launch.classList.add('done');setTimeout(function(){launch.remove();},450);},Math.max(0,minimum-(Date.now()-started)));
+ };
+ window.launchFailed=function(){
+  if(finished)return;finished=true;
+  launch.querySelector('.launch-inner').innerHTML='<div class="launch-symbol" aria-hidden="true">!</div><div class="launch-error">Impossible de charger l’application. Vérifie ta connexion et réessaie.</div><button class="launch-retry" type="button" onclick="location.reload()">Réessayer</button>';
+ };
+ setTimeout(function(){if(!finished)window.launchFailed();},15000);
+})();
+</script>
 <div id="app"><p id="boot-status" style="padding:24px;color:#f4f4f4;font:16px system-ui">Chargement de l’application…</p></div>
 <script>
 (function () {
   var app = document.getElementById('app');
   var watchdog = setTimeout(function () {
     if (document.getElementById('boot-status')) {
+      window.launchFailed?.();
       app.innerHTML = '<p style="padding:24px;color:#f4f4f4;font:16px system-ui">L’application ne parvient pas à démarrer. Vérifie ta connexion Internet, puis réessaie. Si le problème persiste, signale « démarrage bloqué ».</p>';
     }
   }, 12000);
   window.addEventListener('error', function (event) {
     if (!document.getElementById('boot-status')) return;
     clearTimeout(watchdog);
+    window.launchFailed?.();
     app.textContent = 'Erreur de démarrage : ' + (event.message || 'chargement impossible');
     app.style.cssText = 'padding:24px;color:#f4f4f4;font:16px system-ui';
   }, true);
