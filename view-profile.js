@@ -1,5 +1,5 @@
 import * as db from './db.js';
-import { h, initials, toast, errMsg } from './ui.js';
+import { h, initials, toast, errMsg, sheet, field } from './ui.js';
 
 export const meta = { label: 'Accueil', icon: 'home' };
 
@@ -14,14 +14,36 @@ export function render(ctx) {
   });
   const draw = () => {
     const profile = db.getProfile().data;
-    const name = profile.name || (ctx.session.user.email || '').split('@')[0] || 'Moi';
+    const parts = String(profile.name || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = profile.firstName || parts[0] || (ctx.session.user.email || '').split('@')[0] || 'Moi';
+    const lastName = profile.lastName || parts.slice(1).join(' ');
+    const name = [firstName, lastName].filter(Boolean).join(' ');
     const avatar = h('button', { type: 'button', class: 'home-avatar',
       'aria-label': 'Changer ma photo de profil', onclick: () => photoInput.click()
     }, profile.avatarDataUrl
       ? h('img', { src: profile.avatarDataUrl, alt: 'Photo de profil' })
       : h('span', {}, initials(name)));
-    root.replaceChildren(avatar, h('h1', { class: 'home-name' }, name),
-      h('p', { class: 'home-photo-hint' }, 'Toucher la photo pour la modifier'),
+    const editName = () => sheet('Modifier mon nom', close => {
+      const first = h('input', { value: firstName, placeholder: 'Prénom', autocomplete: 'given-name' });
+      const last = h('input', { value: lastName, placeholder: 'Nom de famille', autocomplete: 'family-name' });
+      return h('div', {}, field('Prénom', first), field('Nom de famille', last),
+        h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', type: 'button',
+          onclick: async () => {
+            try {
+              const given = first.value.trim();
+              const family = last.value.trim();
+              if (!given) { toast('Entre ton prénom.'); return; }
+              await db.saveProfile({ firstName: given, lastName: family, name: [given, family].filter(Boolean).join(' ') });
+              close();
+            } catch (error) { toast(errMsg(error)); }
+          }
+        }, 'Enregistrer')));
+    });
+    root.replaceChildren(avatar,
+      h('button', { type: 'button', class: 'home-name-button', 'aria-label': 'Modifier mon prénom et mon nom',
+        onclick: editName },
+        h('span', { class: 'home-name' }, firstName),
+        lastName ? h('span', { class: 'home-surname' }, lastName) : null),
       photoInput);
   };
   photoInput.addEventListener('change', async () => {
