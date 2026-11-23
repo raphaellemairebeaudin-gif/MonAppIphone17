@@ -56,11 +56,14 @@ function setMenu(open) { document.body.classList.toggle('menu-open', open); }
 
 let gesture = null;
 let skipNoteBackAnimation = false;
+let gestureFinishTimer = null;
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-const isNoteEditor = () => current === 'notes' && location.hash.startsWith('#/notes/') &&
-  !location.hash.startsWith('#/notes/folder-') && location.hash !== '#/notes/all';
+const isNoteEditor = () => current === 'notes' &&
+  /^#\/notes\/(?:[0-9a-f]{8}-[0-9a-f-]{27,}|new~[^/]*)$/i.test(location.hash);
 
 function clearGesture() {
+  clearTimeout(gestureFinishTimer);
+  gestureFinishTimer = null;
   document.body.classList.remove('gesture-dragging', 'gesture-note-back', 'gesture-menu');
   document.documentElement.style.removeProperty('--gesture-x');
   document.documentElement.style.removeProperty('--drawer-progress');
@@ -88,6 +91,9 @@ document.addEventListener('touchstart', e => {
   const t = e.touches[0];
   const menuOpen = document.body.classList.contains('menu-open');
   const note = isNoteEditor() && !menuOpen;
+  // Une animation précédente ne doit jamais survivre à un nouveau geste.
+  clearTimeout(gestureFinishTimer);
+  gestureFinishTimer = null;
   // Les gestes de retour/menu commencent sur le bord pour ne pas gêner
   // la sélection de texte, les listes horizontales et le défilement.
   if (!menuOpen && t.clientX > 48) return;
@@ -138,20 +144,22 @@ function finishGesture(cancelled = false) {
     if (commit) {
       // Finir le glissement avec le doigt avant de remplacer l'éditeur.
       document.documentElement.style.setProperty('--gesture-x', window.innerWidth + 'px');
-      setTimeout(() => {
-        skipNoteBackAnimation = true;
+      const noteHash = location.hash;
+      gestureFinishTimer = setTimeout(() => {
         clearGesture();
+        if (location.hash !== noteHash || !isNoteEditor()) return;
+        skipNoteBackAnimation = true;
         location.hash = '#/notes';
       }, 180);
     } else {
       document.documentElement.style.setProperty('--gesture-x', '0px');
-      setTimeout(clearGesture, 210);
+      gestureFinishTimer = setTimeout(clearGesture, 210);
     }
   } else {
     const targetProgress = commit ? (g.mode === 'close' ? 0 : 1) : (g.mode === 'close' ? 1 : 0);
     document.documentElement.style.setProperty('--drawer-progress', targetProgress);
     document.documentElement.style.setProperty('--drawer-x', ((targetProgress - 1) * g.width) + 'px');
-    setTimeout(() => {
+    gestureFinishTimer = setTimeout(() => {
       setMenu(commit ? g.mode === 'open' : g.mode === 'close');
       clearGesture();
     }, 210);
@@ -210,6 +218,7 @@ function drawDrawer() {
 
 function renderRoute() {
   if (!ui) return;
+  if (gestureFinishTimer || document.body.classList.contains('gesture-dragging')) clearGesture();
   if (leaveHandler) { try { leaveHandler(); } catch (e) { /* ignore */ } }
   leaveHandler = null;
   dataHandler = null;
