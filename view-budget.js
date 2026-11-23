@@ -30,17 +30,12 @@ export function render(ctx, param) {
     }, ...cards.map(card =>
       h('div', { class: 'budget-bank-card', role: 'button', tabindex: '0',
         'aria-label': 'Voir les détails de ' + (card.data.name || 'la carte'),
-        onclick: (e) => { if (!e.target.closest('.budget-bank-card-edit')) location.hash = '#/budget/card/' + encodeURIComponent(card.id); },
-        onkeydown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button')) { e.preventDefault(); location.hash = '#/budget/card/' + encodeURIComponent(card.id); } }
+        onclick: () => { location.hash = '#/budget/card/' + encodeURIComponent(card.id); },
+        onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.hash = '#/budget/card/' + encodeURIComponent(card.id); } }
       },
         h('div', { class: 'budget-bank-card-top' },
           h('span', { class: 'budget-bank-card-type' },
-            card.data.type === 'credit' ? 'CRÉDIT' : 'DÉBIT'),
-          h('button', {
-            type: 'button', class: 'budget-bank-card-edit',
-            'aria-label': 'Modifier ' + (card.data.name || 'la carte'),
-            onclick: () => cardSheet(draw, card)
-          }, '⋯')
+            card.data.type === 'credit' ? 'CRÉDIT' : 'DÉBIT')
         ),
         h('span', { class: 'budget-bank-card-name' }, card.data.name || 'Ma carte'),
         h('span', { class: 'budget-bank-card-finances' },
@@ -218,8 +213,9 @@ function renderCardDetail(ctx, id) {
     root.replaceChildren(
       h('div', { class: 'budget-detail-cardhead' },
         h('span', {}, credit ? 'CARTE DE CRÉDIT' : 'CARTE DE DÉBIT'),
-        h('button', { type: 'button', class: 'budget-detail-edit',
-          onclick: () => cardSheet(draw, card) }, 'Modifier')
+        h('button', { type: 'button', class: 'budget-bank-card-edit',
+          'aria-label': 'Modifier ' + (card.data.name || 'la carte'),
+          onclick: () => cardSheet(draw, card) }, '⋯')
       ),
       graph, summary, historySection
     );
