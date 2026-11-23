@@ -2,6 +2,8 @@
 import * as db from './db.js';
 import { h, icon, sheet, field, row, fmtMoney, fmtDate, num, today, toast, errMsg } from './ui.js';
 
+const FIRST_PAYDAY = '2026-12-01';
+
 const periods = [
   ['2025-12-21','2026-01-03'],['2026-07-19','2026-08-01'],
   ['2026-12-20','2027-01-02'],['2027-07-25','2027-08-07'],
@@ -37,12 +39,12 @@ const safe = async (fn,err) => {try {await fn();}catch(e){err.textContent=errMsg
 export function salarySection(ym) {
   const wrap=h('div');
   const draw=()=>{
-    const first=ym+'-01', end=plus(ym+'-01',42);
+    const first=ym+'-01';
     const paydays=[];
     let mon=monday(first);
     for(let i=0;i<8;i++,mon=plus(mon,7)){
       const payday=plus(mon,8);
-      if(payday.startsWith(ym))paydays.push({mon,payday,...salaryFor(mon)});
+      if(payday >= FIRST_PAYDAY && payday.startsWith(ym))paydays.push({mon,payday,...salaryFor(mon)});
     }
     const overrides=db.all('pay_override');
     const vacationPays=db.all('vacation_pay').filter(r=>r.data.date.startsWith(ym));
@@ -62,7 +64,7 @@ export function salarySection(ym) {
       h('div',{class:'card'},h('div',{class:'lbl'},'Prévision du mois (non confirmée)'),h('div',{class:'big'},fmtMoney(total)),
         note('Paie le mardi pour la semaine précédente. Les prévisions ne sont pas ajoutées aux revenus réels.')),
       h('div',{class:'btnrow'},btn('Taux de salaire',()=>rateSheet(draw)),btn('Calendrier CCQ',()=>calendarSheet(draw))),
-      note('Vacances CCQ : 0 $ de salaire régulier. Les jours fériés doivent être vérifiés et enregistrés selon le calendrier officiel.'),
+      note('Début du suivi : mardi 1er décembre 2026. Vacances CCQ : 0 $ de salaire régulier pour les semaines entièrement en congé. Les jours fériés doivent être vérifiés et enregistrés selon le calendrier officiel.'),
       ...list,
       h('div',{class:'btnrow'},btn('Ajouter une paie de vacances',()=>vacationSheet(null,draw),'primary')),
       ...vacationPays.map(v=>row('Vacances · '+fmtDate(v.data.date),v.data.note||'Saisie manuelle',fmtMoney(v.data.amount),()=>vacationSheet(v,draw)))
