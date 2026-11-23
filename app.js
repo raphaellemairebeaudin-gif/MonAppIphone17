@@ -76,12 +76,9 @@ document.addEventListener('touchend', (e) => {
 
   const isOpen = document.body.classList.contains('menu-open');
   if (dx > 0 && !isOpen) {
-    // Dans l'éditeur de note, glisser vers la droite revient à la liste
-    // plutôt que d'ouvrir le tiroir. Le changement de route déclenche
-    // onLeave et l'enregistrement automatique de la note.
-    const [, section, noteId] = location.hash.split('/');
-    if (section === 'notes' && noteId) location.hash = '#/notes';
-    else setMenu(true);
+    // Un glissement vers la droite ouvre toujours le menu, même dans une note.
+    // Ne jamais déclencher un retour de page par ce geste.
+    setMenu(true);
   }
   else if (dx < 0 && isOpen) setMenu(false);
 }, { passive: true });
