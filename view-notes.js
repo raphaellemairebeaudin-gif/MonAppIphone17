@@ -493,6 +493,32 @@ function editor(ctx, id) {
     if (replaceEmptyListItem(item, kind)) return;
     if (item && item.parentElement.tagName === kind && !item.parentElement.classList.contains('check-list')) {
       removeListMarker(item);
+    } else if (!item) {
+      const selection = window.getSelection();
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      const element = range && (range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement);
+      const block = element?.closest('p, div, h2, h3, h4, blockquote');
+      if (range && block && block !== editable && editable.contains(block)) {
+        // Convertir la ligne courante plutôt que d'ajouter une liste en dessous.
+        const marker = document.createComment('note-list-cursor');
+        const position = range.cloneRange();
+        position.collapse(true);
+        position.insertNode(marker);
+        const list = document.createElement(kind.toLowerCase());
+        const li = document.createElement('li');
+        while (block.firstChild) li.append(block.firstChild);
+        list.append(li);
+        block.replaceWith(list);
+        const cursor = document.createRange();
+        cursor.setStartAfter(marker);
+        cursor.collapse(true);
+        marker.remove();
+        selection.removeAllRanges();
+        selection.addRange(cursor);
+        rememberSelection();
+        sync();
+        scheduleCaretHint();
+      } else format(kind === 'OL' ? 'insertOrderedList' : 'insertUnorderedList');
     } else format(kind === 'OL' ? 'insertOrderedList' : 'insertUnorderedList');
   };
   const insertCheckbox = () => {
