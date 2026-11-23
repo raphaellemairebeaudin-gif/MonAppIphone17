@@ -1121,3 +1121,5 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .budget-bank-card-finances{gap:3px}
 .budget-bank-card-amount{display:block;font-size:clamp(23px,6vw,29px);font-weight:700;letter-spacing:-.5px;color:var(--text)}
 .budget-bank-card-limit{display:block;font-size:13px;font-weight:500;color:var(--text);margin-top:8px}
+
+.budget-card-delete{width:100%;min-height:46px;border:1px solid var(--line);border-radius:12px;background:transparent;color:#c94a4a;font-size:14px;font-weight:600;margin-top:2px}
