@@ -1127,3 +1127,41 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .budget-bank-card-top{display:flex;align-items:center;justify-content:space-between;width:100%;gap:10px}
 .budget-bank-card-edit{display:flex;align-items:center;justify-content:center;flex:0 0 34px;width:34px;height:34px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--text);font-size:23px;line-height:1;font-weight:700;cursor:pointer}
 .budget-bank-card-edit:active{background:var(--line)}
+
+
+/* Page de détails d'une carte */
+.budget-bank-card[role=button]{cursor:pointer}
+.budget-bank-card:focus-visible{outline:2px solid var(--text);outline-offset:3px}
+.budget-detail{display:flex;flex-direction:column;gap:18px;padding:12px 0 48px;min-width:0}
+.budget-detail-cardhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.budget-detail-cardhead>span{font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--sec)}
+.budget-detail-edit{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600}
+.budget-detail-panel,.budget-detail-summary,.budget-detail-history{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:18px;min-width:0}
+.budget-detail-section-title{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.budget-detail-section-title h2,.budget-detail-history h2{font-size:17px;font-weight:650;margin:0}
+.budget-detail-periods{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:3px}
+.budget-detail-periods button{border:0;background:transparent;color:var(--sec);font-size:12px;font-weight:600;padding:7px 9px;border-radius:8px}
+.budget-detail-periods button.on{background:var(--text);color:var(--bg)}
+.budget-detail-chart{margin-top:18px;min-width:0}
+.budget-detail-chart-svg{display:block;width:100%;height:auto;overflow:visible}
+.budget-chart-axis{stroke:var(--line);stroke-width:1}
+.budget-chart-line{fill:none;stroke:var(--text);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.budget-chart-dot{fill:var(--text)}
+.budget-chart-labels{display:flex;justify-content:space-between;color:var(--sec);font-size:11px;margin-top:5px}
+.budget-detail-hint{font-size:12px;line-height:1.45;color:var(--sec);margin:15px 0 0}
+.budget-detail-summary{display:flex;flex-direction:column;gap:18px}
+.budget-detail-metric{display:flex;flex-direction:column;gap:6px;min-width:0}
+.budget-detail-metric span{font-size:12px;color:var(--sec)}
+.budget-detail-metric strong{font-size:18px;line-height:1.2;font-weight:650;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.budget-detail-primary strong{font-size:clamp(26px,8vw,36px)}
+.budget-detail-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;border-top:1px solid var(--line);padding-top:17px}
+.budget-detail-operations{margin-top:12px}
+.budget-detail-operation{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 0;border-bottom:1px solid var(--line)}
+.budget-detail-operation:last-child{border-bottom:0;padding-bottom:0}
+.budget-detail-operation-info,.budget-detail-operation-amount{display:flex;flex-direction:column;gap:5px;min-width:0}
+.budget-detail-operation-info{flex:1}
+.budget-detail-operation-info strong{font-size:14px;overflow-wrap:anywhere}
+.budget-detail-operation-info span,.budget-detail-operation-amount span{font-size:11px;color:var(--sec);line-height:1.4}
+.budget-detail-operation-amount{text-align:right;align-items:flex-end}
+.budget-detail-operation-amount strong{font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.budget-detail-empty{font-size:13px;color:var(--sec);padding:14px 0}
