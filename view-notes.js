@@ -851,8 +851,8 @@ function editor(ctx, id) {
   }
   function openFolderMenu(){
     sheet('Ajouter au dossier',close=>h('div',{class:'notes-options'},
-      h('button',{class:'notes-option-row',onclick:()=>{close();openFolderPicker();}},
-        icon('folder-plus'),noteFolders(data).length?'Ajouter à un autre dossier':'Ajouter à un dossier'),
+      h('button',{class:'notes-option-row',onclick:()=>{close();editFolder(null,async created=>{await addToFolder(created.id,()=>{});});}},
+        icon('folder-plus'),'Ajouter nouveau dossier'),
       ...db.all('note_folder').filter(f=>noteFolders(data).includes(f.id)).map(f=>
         h('button',{class:'notes-option-row',onclick:()=>{close();openFolderOptions(f);}},
           icon(f.data.icon||'folder'),f.data.title))));
