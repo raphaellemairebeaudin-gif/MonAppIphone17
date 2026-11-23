@@ -17,6 +17,18 @@ window.addEventListener('error', (e) => {
   }
 });
 
+// Demander le mode portrait lorsque le navigateur le permet.
+// iOS peut ignorer cette demande pour une application web installée.
+async function requestPortraitOrientation() {
+  try {
+    if (screen.orientation && typeof screen.orientation.lock === 'function') {
+      await screen.orientation.lock('portrait');
+    }
+  } catch (_) {
+    // Certains navigateurs, notamment Safari sur iPhone, refusent le verrouillage.
+  }
+}
+
 applyTheme();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
@@ -149,6 +161,7 @@ db.onChange(() => {
 });
 
 function start(s) {
+  requestPortraitOrientation();
   session = s;
   db.useUser(s.user.id);
   buildShell();
