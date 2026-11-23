@@ -21,14 +21,9 @@ applyTheme();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
 if ('serviceWorker' in navigator) {
-  let refreshing = false;
-  const hadController = Boolean(navigator.serviceWorker.controller);
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController && !refreshing) {
-      refreshing = true;
-      location.reload();
-    }
-  });
+  // Ne pas recharger automatiquement lors d'une mise à jour :
+  // une recharge détruirait les formulaires ouverts après un retour d'arrière-plan.
+  // La nouvelle version sera utilisée au prochain véritable démarrage.
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') reg.update().catch(() => {});
@@ -38,7 +33,7 @@ if ('serviceWorker' in navigator) {
 
 let session = null;
 let ui = null;
-let current = 'train';
+let current = 'home';
 let backHref = null;
 let dataHandler = null;
 let leaveHandler = null;
@@ -163,6 +158,12 @@ function start(s) {
   session = s;
   db.useUser(s.user.id);
   buildShell();
+  // Une nouvelle exécution JavaScript signifie un nouveau démarrage.
+  // Un simple passage en arrière-plan ne relance pas ce code.
+  // replaceState évite de conserver l'ancienne page dans l'historique.
+  if (location.hash !== '#/home') {
+    history.replaceState(history.state, '', location.pathname + location.search + '#/home');
+  }
   route();
   if (!started) { window.addEventListener('hashchange', route); started = true; }
   db.refresh().then(() => window.finishLaunch?.()).catch(() => window.finishLaunch?.());
