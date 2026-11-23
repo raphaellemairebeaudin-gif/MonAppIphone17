@@ -1,5 +1,5 @@
 
-const CACHE = 'mon-app-safearea-v101';
+const CACHE = 'mon-app-safearea-v102';
 const SHELL = [
   './', 'index.html', 'manifest.json', 'style.css', 'config.js', 'db.js', 'ui.js', 'app.js',
   'view-train.js', 'view-notes.js', 'view-budget.js', 'view-budget-extra.js', 'view-budget-banks.js', 'view-supp.js', 'view-profile.js', 'view-settings.js',
@@ -27,6 +27,8 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Les fichiers statiques sont préchargés à l'installation et servis localement.
+// Les pages de navigation restent réseau d'abord pour récupérer les nouvelles versions.
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -35,18 +37,26 @@ self.addEventListener('fetch', (e) => {
   const cdn = url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'esm.sh';
   if (!sameOrigin && !cdn) return;
 
-  e.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      try {
-        const res = await fetch(req, { cache: 'no-store' });
-        if (res && res.status === 200) cache.put(req, res.clone());
-        return res;
-      } catch (err) {
-        const cached = await cache.match(req, { ignoreSearch: false });
-        if (cached) return cached;
-        if (req.mode === 'navigate') return cache.match('index.html');
-        return new Response('', { status: 504 });
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    if (sameOrigin && req.mode !== 'navigate') {
+      const cached = await cache.match(req);
+      if (cached) return cached;
+    }
+    try {
+      const res = await fetch(req);
+      if (res.ok && (sameOrigin || cdn)) {
+        e.waitUntil(cache.put(req, res.clone()).catch(() => {}));
       }
-    })
-  );
+      return res;
+    } catch (_) {
+      const cached = await cache.match(req);
+      if (cached) return cached;
+      if (sameOrigin && req.mode === 'navigate') {
+        const fallback = await cache.match('index.html');
+        if (fallback) return fallback;
+      }
+      return new Response('Ressource indisponible', { status: 503 });
+    }
+  })());
 });
