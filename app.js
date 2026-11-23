@@ -1,5 +1,5 @@
 import * as db from './db.js';
-import { h, icon, applyTheme, initials } from './ui.js';
+import { h, icon, applyTheme } from './ui.js';
 import * as train from './view-train.js';
 import * as notes from './view-notes.js';
 import * as budget from './view-budget.js';
@@ -8,7 +8,7 @@ import * as home from './view-profile.js';
 import * as settings from './view-settings.js';
 
 const views = { home, train, notes, budget, supp, settings };
-const NAV = ['train', 'notes', 'budget', 'supp'];
+const NAV = ['home', 'train', 'notes', 'budget', 'supp'];
 const root = document.getElementById('app');
 
 window.addEventListener('error', (e) => {
@@ -113,15 +113,9 @@ function buildShell() {
 }
 
 function drawDrawer() {
-  const [emailPrefix = ''] = (session.user.email || '').split('@');
-  const name = String(db.getProfile().data.name || emailPrefix || 'Moi');
   const link = (k) => h('a', { href: '#/' + k, class: 'nav' + (k === current ? ' on' : ''), onclick: () => setMenu(false) },
     icon(views[k].meta.icon), views[k].meta.label);
   ui.drawer.replaceChildren(
-    h('a', { href: '#/home', class: 'profile-link', onclick: () => setMenu(false) },
-      h('div', { class: 'avatar' }, initials(name)),
-      h('div', { class: 'grow' }, h('div', { class: 'pname' }, name), h('div', { class: 'psub' }, 'Accueil')),
-      icon('chevron-right')),
     ...NAV.map(link),
     h('div', { class: 'spacer' }),
     h('div', { class: 'bottom' }, link('settings'))
