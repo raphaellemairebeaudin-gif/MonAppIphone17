@@ -1262,3 +1262,12 @@ input, select, textarea { font-size: 16px; }
 .notes-folder-tile.selected{border-color:var(--text);box-shadow:inset 0 0 0 1px var(--text);background:var(--line)}
 .notes-folder-all{flex:0 0 77px;justify-content:center;gap:7px;padding:0 9px;font-size:12px;font-weight:600}
 .notes-folder-all i{font-size:17px}
+
+/* Palette de couleurs des dossiers, sans modifier le thème monochrome */
+.notes-icon-picker{grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;max-height:190px;overflow-y:auto;padding:2px 2px 8px;overscroll-behavior:contain}
+.notes-icon-choice{height:43px;font-size:21px}
+.notes-color-picker{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:11px 8px;margin:10px 0 19px}
+.notes-color-choice{width:38px;height:38px;max-width:100%;justify-self:center;border:2px solid transparent;border-radius:50%;background:var(--swatch);color:var(--bg);display:flex;align-items:center;justify-content:center;position:relative}
+.notes-color-choice:first-child{background:var(--card);border:1px solid var(--line);color:var(--text)}
+.notes-color-choice.selected{outline:2px solid var(--text);outline-offset:3px}
+.notes-color-choice i{font-size:18px}
