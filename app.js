@@ -4,11 +4,11 @@ import * as train from './view-train.js';
 import * as notes from './view-notes.js';
 import * as budget from './view-budget.js';
 import * as supp from './view-supp.js';
-import * as profile from './view-profile.js';
+import * as home from './view-profile.js';
 import * as settings from './view-settings.js';
 
-const views = { train, notes, budget, supp, profile, settings };
-const NAV = ['train', 'notes', 'budget', 'supp'];
+const views = { home, train, notes, budget, supp, settings };
+const NAV = ['home', 'train', 'notes', 'budget', 'supp'];
 const root = document.getElementById('app');
 
 window.addEventListener('error', (e) => {
@@ -123,9 +123,9 @@ function drawDrawer() {
   const link = (k) => h('a', { href: '#/' + k, class: 'nav' + (k === current ? ' on' : ''), onclick: () => setMenu(false) },
     icon(views[k].meta.icon), views[k].meta.label);
   ui.drawer.replaceChildren(
-    h('a', { href: '#/profile', class: 'profile-link', onclick: () => setMenu(false) },
+    h('a', { href: '#/home', class: 'profile-link', onclick: () => setMenu(false) },
       h('div', { class: 'avatar' }, initials(name)),
-      h('div', { class: 'grow' }, h('div', { class: 'pname' }, name), h('div', { class: 'psub' }, 'Voir le profil')),
+      h('div', { class: 'grow' }, h('div', { class: 'pname' }, name), h('div', { class: 'psub' }, 'Accueil')),
       icon('chevron-right')),
     ...NAV.map(link),
     h('div', { class: 'spacer' }),
@@ -139,7 +139,7 @@ function route() {
   leaveHandler = null;
   dataHandler = null;
   const [, name, param] = location.hash.split('/');
-  current = views[name] ? name : 'train';
+  current = views[name] ? name : 'home';
   ui.ctx.setActions([]);
   ui.ctx.setFab(null);
   ui.ctx.main.replaceChildren();
