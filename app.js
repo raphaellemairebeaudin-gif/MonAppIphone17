@@ -87,7 +87,7 @@ function noteSwipePreview() {
   document.body.append(preview);
 }
 document.addEventListener('touchstart', e => {
-  if (!ui || e.touches.length !== 1 || gesture) return;
+  if (!ui || e.touches.length !== 1 || gesture || gestureFinishTimer) return;
   if (document.querySelector('.sheet-wrap.open') ||
       e.target.closest('.toolbar, .budget-cards-scroll, .notes-folder-strip, input[type=range]')) return;
   const t = e.touches[0];
@@ -96,9 +96,9 @@ document.addEventListener('touchstart', e => {
   // Une animation précédente ne doit jamais survivre à un nouveau geste.
   clearTimeout(gestureFinishTimer);
   gestureFinishTimer = null;
-  // Les gestes de retour/menu commencent sur le bord pour ne pas gêner
-  // la sélection de texte, les listes horizontales et le défilement.
-  if (!menuOpen && t.clientX > 48) return;
+  // Le geste horizontal peut commencer n'importe où sur l'écran.
+  // Les zones à défilement horizontal conservent toutefois leur geste natif.
+  if (e.target.closest('input, textarea, select, [contenteditable="true"], .notes-icon-picker, .notes-color-picker, .notes-folder-tabs, .toolbar')) return;
   gesture = { id: t.identifier, startX: t.clientX, startY: t.clientY,
     x: t.clientX, lastX: t.clientX, lastAt: performance.now(), velocity: 0,
     mode: menuOpen ? 'close' : note ? 'note' : 'open',
