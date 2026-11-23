@@ -1,11 +1,16 @@
 import * as db from './db.js';
 import { h, field, sheet, num, errMsg, fmtMoney, fmtDate } from './ui.js';
 import { balance } from './view-budget-banks.js';
+import { investmentBalance, investmentEvents, investmentAccountSheet, investmentEventSheet } from './view-budget-extra.js';
 
 export const meta = { label: 'Budget', icon: 'wallet' };
 
 // Cartes affichées sur la page principale et utilisées dans le menu +.
 export function render(ctx, param) {
+  if (param === 'investment') {
+    renderInvestmentDetail(ctx, decodeURIComponent(location.hash.split('/')[3] || ''));
+    return;
+  }
   if (param === 'card') {
     renderCardDetail(ctx, decodeURIComponent(location.hash.split('/')[3] || ''));
     return;
@@ -14,6 +19,7 @@ export function render(ctx, param) {
   ctx.setActions([]);
   ctx.setFab(openAddMenu);
   const section = h('section', { class: 'budget-cards-section' });
+  const investmentsSection = h('section', { class: 'budget-cards-section' });
   const draw = () => {
     const cards = db.all('bank_account').filter(a =>
       a.data.type === 'checking' || a.data.type === 'credit'
@@ -52,12 +58,140 @@ export function render(ctx, param) {
     section.replaceChildren(heading,
       cards.length ? scroller : h('p', { class: 'budget-cards-empty' }, 'Aucune carte')
     );
+    const investments = db.all('investment_account');
+    investmentsSection.replaceChildren(
+      h('div', { class: 'budget-cards-heading' },
+        h('h2', {}, 'Mes Placements'),
+        h('button', { type: 'button', class: 'budget-card-add',
+          onclick: () => investmentAccountSheet(null, draw) }, '+ Ajouter')
+      ),
+      investments.length
+        ? h('div', { class: 'budget-cards-scroll', role: 'region',
+            'aria-label': 'Mes placements', tabindex: '0' },
+            ...investments.map(item => h('div', {
+              class: 'budget-bank-card', role: 'button', tabindex: '0',
+              'aria-label': 'Voir les détails de ' + (item.data.name || 'ce placement'),
+              onclick: () => { location.hash = '#/budget/investment/' + encodeURIComponent(item.id); },
+              onkeydown: e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault(); location.hash = '#/budget/investment/' + encodeURIComponent(item.id);
+                }
+              }
+            },
+              h('span', { class: 'budget-bank-card-type' }, item.data.type || 'PLACEMENT'),
+              h('span', { class: 'budget-bank-card-name' }, item.data.name || 'Mon placement'),
+              h('span', { class: 'budget-bank-card-finances' },
+                h('span', { class: 'budget-bank-card-amount' }, fmtMoney(investmentBalance(item))),
+                h('span', { class: 'budget-bank-card-bottom' }, 'Valeur actuelle')
+              )
+            )))
+        : h('p', { class: 'budget-cards-empty' }, 'Aucun placement')
+    );
   };
   draw();
-  ctx.main.replaceChildren(section);
+  ctx.main.replaceChildren(section, investmentsSection);
   ctx.onData(draw);
 }
 
+
+
+function renderInvestmentDetail(ctx, id) {
+  const account = db.get(id);
+  if (!account || account.kind !== 'investment_account') {
+    ctx.setHead('Placement introuvable', '', { back: '#/budget' });
+    ctx.setActions([]); ctx.setFab(null);
+    ctx.main.replaceChildren(h('p', { class: 'budget-detail-empty' }, 'Ce placement est introuvable.'));
+    return;
+  }
+  ctx.setHead(account.data.name || 'Mon placement', '', { back: '#/budget' });
+  ctx.setFab(null);
+  let period = '90';
+  const root = h('div', { class: 'budget-detail' });
+  const draw = () => {
+    const item = db.get(id);
+    if (!item) { location.hash = '#/budget'; return; }
+    const history = investmentEvents(id);
+    let value = Number(item.data.openingBalance) || 0;
+    const points = [{ date: item.created_at?.slice(0, 10) || history[0]?.data.date || '', value }];
+    const movements = history.map(e => {
+      const previous = value;
+      const amount = Number(e.data.amount) || 0;
+      value = e.data.type === 'balance' ? amount
+        : value + (e.data.type === 'deposit' ? amount : -amount);
+      points.push({ date: e.data.date, value });
+      return { entry: e, value, delta: value - previous };
+    });
+    const deposits = history.filter(e => e.data.type === 'deposit')
+      .reduce((sum, e) => sum + (Number(e.data.amount) || 0), 0);
+    const withdrawals = history.filter(e => e.data.type === 'withdrawal')
+      .reduce((sum, e) => sum + (Number(e.data.amount) || 0), 0);
+    root.replaceChildren(
+      h('div', { class: 'budget-detail-cardhead' },
+        h('span', {}, item.data.type || 'PLACEMENT')
+      ),
+      h('section', { class: 'budget-detail-panel' },
+        h('div', { class: 'budget-detail-section-title' },
+          h('h2', {}, 'Évolution de la valeur'),
+          h('div', { class: 'budget-detail-periods' },
+            ...[['30','30 j'],['90','90 j'],['all','Tout']].map(([p, label]) =>
+              h('button', { type: 'button', class: period === p ? 'on' : '',
+                'aria-pressed': String(period === p),
+                onclick: () => { period = p; draw(); }
+              }, label))
+          )
+        ),
+        cardChart(points, period),
+        h('p', { class: 'budget-detail-hint' },
+          'Valeurs déclarées manuellement. Le graphique ne représente pas un rendement boursier.')
+      ),
+      h('section', { class: 'budget-detail-summary' },
+        h('div', { class: 'budget-detail-metric budget-detail-primary' },
+          h('span', {}, 'Valeur actuelle'), h('strong', {}, fmtMoney(value))),
+        h('div', { class: 'budget-detail-metrics' },
+          h('div', { class: 'budget-detail-metric' },
+            h('span', {}, 'Dépôts enregistrés'), h('strong', {}, fmtMoney(deposits))),
+          h('div', { class: 'budget-detail-metric' },
+            h('span', {}, 'Retraits enregistrés'), h('strong', {}, fmtMoney(withdrawals)))
+        ),
+        h('div', { class: 'budget-detail-investment-actions' },
+          h('button', { type: 'button', class: 'budget-card-add',
+            onclick: () => investmentEventSheet(item, 'deposit', draw) }, '+ Dépôt'),
+          h('button', { type: 'button', class: 'budget-card-add',
+            onclick: () => investmentEventSheet(item, 'withdrawal', draw) }, 'Retrait'),
+          h('button', { type: 'button', class: 'budget-card-add',
+            onclick: () => investmentEventSheet(item, 'balance', draw) }, 'Actualiser le solde')
+        )
+      ),
+      h('section', { class: 'budget-detail-history' },
+        h('h2', {}, 'Historique des opérations'),
+        movements.length ? h('div', { class: 'budget-detail-operations' },
+          ...movements.slice().reverse().map(({ entry, value: after, delta }) =>
+            h('div', { class: 'budget-detail-operation', role: 'button', tabindex: '0',
+              onclick: () => investmentEventSheet(item, entry.data.type, draw, entry),
+              onkeydown: e => { if (e.key === 'Enter') investmentEventSheet(item, entry.data.type, draw, entry); }
+            },
+              h('div', { class: 'budget-detail-operation-info' },
+                h('strong', {}, entry.data.note ||
+                  (entry.data.type === 'balance' ? 'Solde constaté' :
+                    entry.data.type === 'deposit' ? 'Dépôt' : 'Retrait')),
+                h('span', {}, fmtDate(entry.data.date))
+              ),
+              h('div', { class: 'budget-detail-operation-amount' },
+                h('strong', {}, (delta > 0 ? '+' : '') + fmtMoney(delta)),
+                h('span', {}, 'Solde : ' + fmtMoney(after))
+              )
+            ))
+        ) : h('p', { class: 'budget-detail-empty' }, 'Aucune opération enregistrée.')
+      )
+    );
+    ctx.setActions([h('button', { type: 'button', class: 'icon-btn budget-detail-top-edit',
+      'aria-label': 'Modifier le placement',
+      onclick: () => investmentAccountSheet(item, draw) }, '⋯')]);
+  };
+  draw();
+  ctx.main.replaceChildren(root);
+  ctx.onData(draw);
+}
 
 function cardOperations(card) {
   const events = db.all('bank_event').filter(e => e.data.accountId === card.id).map(e => ({
