@@ -612,28 +612,29 @@ function editor(ctx, id) {
       onmousedown: (e) => e.preventDefault(),
       onclick: () => applyTextSize(tag),
     }, label + ' · ' + size)));
-  const toggleHeading = () => {
-    rememberSelection();
-    sizeMenu.hidden = !sizeMenu.hidden;
-    positionSizeMenu();
-  };
   const positionSizeMenu = () => {
     if (sizeMenu.hidden || !toolbar.isConnected) return;
     const headingButton = toolButtons.get('heading');
     if (!headingButton) return;
-    const bounds = headingButton.getBoundingClientRect();
-    // Ancrer le menu au bouton H, pas au contenu de la note.
-    // Le bouton peut défiler horizontalement dans la barre d'outils.
-    const viewport = window.visualViewport;
-    const visibleLeft = viewport?.offsetLeft || 0;
-    const visibleRight = visibleLeft + (viewport?.width || window.innerWidth);
-    const width = sizeMenu.offsetWidth;
-    const left = Math.max(visibleLeft + 8, Math.min(bounds.left + bounds.width / 2 - width / 2, visibleRight - width - 8));
-    sizeMenu.style.left = Math.round(left) + 'px';
+    const buttonRect = headingButton.getBoundingClientRect();
+    const bodyRect = document.body.getBoundingClientRect();
+    const menuWidth = sizeMenu.offsetWidth || 164;
     const menuHeight = sizeMenu.offsetHeight;
-    // Toujours juste au-dessus du H, même quand le clavier iOS déplace le viewport.
-    const top = bounds.top - menuHeight - 8;
-    sizeMenu.style.top = Math.round(Math.max((viewport?.offsetTop || 0) + 4, top)) + 'px';
+    // Le body est fixé à l'écran dans cette PWA. Utiliser ses coordonnées
+    // plutôt que celles du visualViewport, déplacé par le clavier iOS.
+    const left = Math.max(8, Math.min(buttonRect.left - bodyRect.left, bodyRect.width - menuWidth - 8));
+    const top = buttonRect.top - bodyRect.top - menuHeight - 8;
+    sizeMenu.style.left = Math.round(left) + 'px';
+    sizeMenu.style.top = Math.round(Math.max(4, top)) + 'px';
+  };
+  const toggleHeading = () => {
+    rememberSelection();
+    sizeMenu.hidden = !sizeMenu.hidden;
+    if (!sizeMenu.hidden) {
+      positionToolbar();
+      positionSizeMenu();
+      requestAnimationFrame(positionSizeMenu);
+    }
   };
   const tools = [
     ['heading', 'Titre', toggleHeading],
