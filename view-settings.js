@@ -1,15 +1,6 @@
-import * as db from './db.js';
-import { h, seg, group, getTheme, setTheme, today, toast } from './ui.js';
+import { h, seg, group, getTheme, setTheme, toast } from './ui.js';
 
 export const meta = { label: 'Réglages', icon: 'settings' };
-
-function download() {
-  const blob = new Blob([JSON.stringify(db.exportAll(), null, 2)], { type: 'application/json' });
-  const a = h('a', { href: URL.createObjectURL(blob), download: 'mes-donnees-' + today() + '.json' });
-  document.body.append(a);
-  a.click();
-  a.remove();
-}
 
 async function clearLocal() {
   if (!navigator.onLine) {
@@ -40,7 +31,6 @@ export function render(ctx) {
     seg([['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre']], getTheme(), setTheme),
     h('p', { class: 'hint' }, 'Auto suit le réglage de ton iPhone. Ton choix est conservé.'),
     group([
-      { label: 'Exporter mes données', onclick: download },
       { label: 'Vider le cache de l’app', onclick: clearLocal },
     ]),
     h('p', { class: 'hint' }, 'Version 1.0')
