@@ -231,6 +231,7 @@ function editor(ctx, id) {
   }
 
   // Le curseur natif d'iOS suffit : aucun caractère flottant ni animation.
+  let editingStarted = false;
   const hintFormat = { bold: null, italic: null, underline: null };
   const scheduleCaretHint = () => {};
   const resetHintFormat = () => { hintFormat.bold = null; hintFormat.italic = null; hintFormat.underline = null; };
