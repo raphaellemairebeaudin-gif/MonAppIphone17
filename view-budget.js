@@ -150,6 +150,14 @@ function renderCardDetail(ctx, id) {
   }
   ctx.setHead(account.data.name || 'Ma carte', '', { back: '#/budget' });
   ctx.setFab(null);
+  ctx.setActions([h('button', {
+    type: 'button', class: 'icon-btn budget-detail-top-edit',
+    'aria-label': 'Modifier la carte',
+    onclick: () => {
+      const card = db.get(id);
+      if (card) cardSheet(draw, card);
+    }
+  }, '⋯')]);
   let period = '90';
   const root = h('div', { class: 'budget-detail' });
   const draw = () => {
@@ -212,10 +220,7 @@ function renderCardDetail(ctx, id) {
     );
     root.replaceChildren(
       h('div', { class: 'budget-detail-cardhead' },
-        h('span', {}, credit ? 'CARTE DE CRÉDIT' : 'CARTE DE DÉBIT'),
-        h('button', { type: 'button', class: 'budget-bank-card-edit',
-          'aria-label': 'Modifier ' + (card.data.name || 'la carte'),
-          onclick: () => cardSheet(draw, card) }, '⋯')
+        h('span', {}, credit ? 'CARTE DE CRÉDIT' : 'CARTE DE DÉBIT')
       ),
       graph, summary, historySection
     );
