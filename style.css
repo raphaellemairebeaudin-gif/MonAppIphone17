@@ -1251,3 +1251,14 @@ input, select, textarea { font-size: 16px; }
 .notes-folder-picker-row i:last-child{font-size:17px;color:var(--sec)}
 .notes-options{padding:5px 0 16px}
 .notes-option-row.danger{color:var(--danger)}
+
+/* Sélecteur de dossiers miniature, sans changement de page */
+.notes-folder-strip{gap:7px;margin:0 -2px 11px;padding:6px 2px 7px}
+.notes-folder-tile{flex:0 0 120px;min-height:43px;height:43px;border-radius:9px;display:flex;align-items:center}
+.notes-folder-open{min-height:41px;height:41px;padding:7px 25px 7px 9px;gap:7px}
+.notes-folder-open i{font-size:17px}
+.notes-folder-open span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notes-folder-edit{top:8px;right:1px;width:25px;height:25px}
+.notes-folder-tile.selected{border-color:var(--text);box-shadow:inset 0 0 0 1px var(--text);background:var(--line)}
+.notes-folder-all{flex:0 0 77px;justify-content:center;gap:7px;padding:0 9px;font-size:12px;font-weight:600}
+.notes-folder-all i{font-size:17px}
