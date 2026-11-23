@@ -28,7 +28,6 @@ export function render(ctx) {
         tile(db.all('supp').length, 'Suppléments')),
       group([
         { label: 'Modifier le nom', onclick: () => nameSheet(name) },
-        { label: 'Budget mensuel', onclick: () => budgetSheet(prof.budget) },
       ]),
       group([{ label: 'Se déconnecter', danger: true, onclick: async () => {
         if (confirm('Te déconnecter ?')) await db.signOut();
@@ -48,13 +47,3 @@ function nameSheet(current) {
   });
 }
 
-function budgetSheet(current) {
-  sheet('Budget mensuel', (close) => {
-    const input = h('input', { inputmode: 'decimal', placeholder: '2000', value: current || '' });
-    return h('div', {}, field('Montant maximum à dépenser par mois ($)', input),
-      h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', type: 'button', onclick: async () => {
-        const n = parseFloat(String(input.value).replace(',', '.'));
-        try { await db.saveProfile({ budget: Number.isFinite(n) ? n : 0 }); close(); } catch (e) { toast(errMsg(e)); }
-      } }, 'Enregistrer')));
-  });
-}
