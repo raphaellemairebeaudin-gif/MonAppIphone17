@@ -860,7 +860,7 @@ function editor(ctx, id) {
   function drawActions(){
     ctx.setActions([h('button',{class:'icon-btn',type:'button','aria-label':'Options de la note',onclick:()=>{
       sheet('Options de la note',close=>h('div',{class:'notes-options'},
-        h('button',{class:'notes-option-row',onclick:()=>{close();openFolderMenu();}},
+        h('button',{class:'notes-option-row',onclick:()=>{close();if(noteFolders(data).length)openFolderMenu();else editFolder(null,async created=>{await addToFolder(created.id,()=>{});});}},
           icon('folder-plus'),'Ajouter au dossier'),
         h('button',{class:'notes-option-row',onclick:()=>{
           data.pinned=!data.pinned;changed();flush();drawActions();close();
