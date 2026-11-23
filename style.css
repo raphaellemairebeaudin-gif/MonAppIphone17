@@ -1296,7 +1296,7 @@ body.gesture-dragging .drawer,
 body.gesture-dragging .overlay,
 body.gesture-dragging #app{transition:none!important}
 body.gesture-menu:not(.gesture-dragging) .drawer,
-body.gesture-menu:not(.gesture-dragging) .overlay{transition:transform .2s ease-out,opacity .2s ease-out!important}
+body.gesture-menu:not(.gesture-dragging) .overlay{transition:transform var(--gesture-duration,200ms) cubic-bezier(.22,1,.36,1),opacity var(--gesture-duration,200ms) ease-out!important}
 #notes-swipe-preview{
   position:fixed;inset:0;z-index:0;background:var(--bg);color:var(--text);
   padding:calc(env(safe-area-inset-top,0px) + 75px) 20px 20px;
@@ -1309,7 +1309,7 @@ body.gesture-note-back #app{
   position:relative;z-index:1;transform:translate3d(var(--gesture-x,0px),0,0);
   will-change:transform;box-shadow:-12px 0 28px rgba(0,0,0,.22);
 }
-body.gesture-note-back:not(.gesture-dragging) #app{transition:transform .2s ease-out!important}
+body.gesture-note-back:not(.gesture-dragging) #app{transition:transform var(--gesture-duration,200ms) cubic-bezier(.22,1,.36,1)!important}
 @media (prefers-reduced-motion:reduce){
   body.gesture-note-back:not(.gesture-dragging) #app,
   body.gesture-menu:not(.gesture-dragging) .drawer{transition-duration:.01ms!important}
