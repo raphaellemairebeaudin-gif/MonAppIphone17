@@ -8,6 +8,13 @@ const PREFIX_RE = /^(#{1,3} |- \[[ xX]\] |[-*] |\d+\. |> )/;
 let query = '';
 
 const FOLDER_ICONS = ['folder', 'book', 'briefcase', 'heart', 'star', 'bulb', 'school', 'dumbbell', 'wallet', 'music'];
+const noteFolders = data => [...new Set([...(Array.isArray(data.folderIds)?data.folderIds:[]),data.folderId].filter(Boolean))];
+const hasFolder = (note,id) => noteFolders(note.data).includes(id);
+async function pruneEmptyFolder(id) {
+  if(!id || db.all('note').some(n=>hasFolder(n,id)))return;
+  for(const c of db.all('note_category').filter(c=>c.data.folderId===id))await db.remove(c.id);
+  if(db.get(id)?.kind==='note_folder')await db.remove(id);
+}
 const sortUpdated = (a,b) => (b.data.pinned ? 1 : 0) - (a.data.pinned ? 1 : 0) || b.updated_at.localeCompare(a.updated_at);
 const noteRow = n => {
   const raw = n.data.body || '';
@@ -43,8 +50,10 @@ function editFolder(existing = null, onCreated = null) {
       existing ? h('button',{class:'btn danger',onclick:async()=>{
         if(!confirm('Supprimer ce dossier ? Les catégories et les notes seront conservées, sans dossier.'))return;
         try {
-          for(const n of db.all('note').filter(n=>n.data.folderId===existing.id))
-            await db.update(n.id,{...n.data,folderId:null,categoryId:null});
+          for(const n of db.all('note').filter(n=>hasFolder(n,existing.id))) {
+            const ids=noteFolders(n.data).filter(id=>id!==existing.id);
+            await db.update(n.id,{...n.data,folderIds:ids,folderId:ids[0]||null,categoryId:null});
+          }
           for(const c of db.all('note_category').filter(c=>c.data.folderId===existing.id)) await db.remove(c.id);
           await db.remove(existing.id);close();location.hash='#/notes';
         }catch(e){toast(errMsg(e));}
@@ -73,7 +82,7 @@ export function render(ctx,param){
       ...folders.map(f=>h('div',{class:'notes-folder-tile'+(selectedFolderId===f.id?' selected':'')},
         h('button',{class:'notes-folder-open',onclick:()=>{selectedFolderId=f.id;draw();}},icon(f.data.icon||'folder'),h('span',{},f.data.title)),
         h('button',{class:'notes-folder-edit','aria-label':'Modifier '+f.data.title,onclick:()=>editFolder(f)},icon('dots')))));
-    const visible=selectedFolderId==='all'?notes:notes.filter(n=>n.data.folderId===selectedFolderId);
+    const visible=selectedFolderId==='all'?notes:notes.filter(n=>hasFolder(n,selectedFolderId));
     body.replaceChildren(strip,...(visible.length?visible.map(noteRow):[empty('Aucune note','Touche + pour créer une note.')]));
   }
   ctx.onData(draw);draw();
@@ -132,7 +141,7 @@ function editor(ctx, id) {
   const [,newFolderId='']=id.split('~');
   let record = isNew ? null : db.get(id);
   if (!isNew && !record) { location.hash = '#/notes'; return; }
-  const data = record ? { title: '', body: '', pinned: false, ...record.data } : { title: '', body: '', pinned: false, folderId:newFolderId||null, categoryId:null };
+  const data = record ? { title: '', body: '', pinned: false, ...record.data } : { title: '', body: '', pinned: false, folderId:newFolderId||null, folderIds:newFolderId?[newFolderId]:[], categoryId:null };
   const backTo = '#/notes';
   let timer = null;
   let chain = Promise.resolve();
@@ -812,40 +821,54 @@ function editor(ctx, id) {
   titleIn.addEventListener('focus', followKeyboard);
   titleIn.addEventListener('blur', followKeyboard);
 
-  async function setFolder(folderId,close){
-    try{
-      data.folderId=folderId||null;data.categoryId=null;changed();await flush();close();
-      toast(folderId?'Note ajoutée au dossier.':'Note retirée du dossier.');
-    }catch(e){toast(errMsg(e));}
+  async function addToFolder(folderId,close){
+    const ids=[...new Set([...noteFolders(data),folderId])];
+    data.folderIds=ids;data.folderId=ids[0]||null;data.categoryId=null;
+    changed();await flush();close();toast('Note ajoutée au dossier.');
+  }
+  async function removeFromFolder(folderId,close){
+    const ids=noteFolders(data).filter(id=>id!==folderId);
+    data.folderIds=ids;data.folderId=ids[0]||null;data.categoryId=null;
+    changed();await flush();
+    await pruneEmptyFolder(folderId);
+    close();toast('Note retirée du dossier.');
   }
   function openFolderPicker(){
-    sheet('Choisir un dossier',close=>h('div',{class:'notes-folder-picker'},
-      ...db.all('note_folder').map(f=>h('button',{class:'notes-folder-picker-row',onclick:()=>setFolder(f.id,close)},
-        icon(f.data.icon||'folder'),h('span',{},f.data.title),icon('chevron-right'))),
+    sheet('Ajouter à un dossier',close=>h('div',{class:'notes-folder-picker'},
+      ...db.all('note_folder').filter(f=>!noteFolders(data).includes(f.id)).map(f=>
+        h('button',{class:'notes-folder-picker-row',onclick:async()=>{
+          try{await addToFolder(f.id,close);}catch(e){toast(errMsg(e));}
+        }},icon(f.data.icon||'folder'),h('span',{},f.data.title),icon('chevron-right'))),
       h('button',{class:'notes-folder-picker-row',onclick:()=>editFolder(null,async created=>{
-        await setFolder(created.id,close);
+        await addToFolder(created.id,close);
       })},icon('folder-plus'),h('span',{},'Créer un nouveau dossier'),icon('plus'))));
   }
-  function openFolderOptions(){
-    const folder=db.all('note_folder').find(f=>f.id===data.folderId);
-    if(!folder){openFolderPicker();return;}
+  function openFolderOptions(folder){
     sheet(folder.data.title,close=>h('div',{class:'notes-options'},
-      h('button',{class:'notes-option-row',onclick:()=>{close();openFolderPicker();}},icon('folder-plus'),'Ajouter à un autre dossier'),
-      h('button',{class:'notes-option-row',onclick:()=>setFolder(null,close)},icon('folder-minus'),'Retirer du dossier')));
+      h('button',{class:'notes-option-row',onclick:async()=>{
+        try{await removeFromFolder(folder.id,close);}catch(e){toast(errMsg(e));}
+      }},icon('folder-minus'),'Retirer la note du dossier')));
+  }
+  function openFolderMenu(){
+    sheet('Ajouter au dossier',close=>h('div',{class:'notes-options'},
+      h('button',{class:'notes-option-row',onclick:()=>{close();openFolderPicker();}},
+        icon('folder-plus'),'Ajouter à un autre dossier'),
+      ...db.all('note_folder').filter(f=>noteFolders(data).includes(f.id)).map(f=>
+        h('button',{class:'notes-option-row',onclick:()=>{close();openFolderOptions(f);}},
+          icon(f.data.icon||'folder'),f.data.title))));
   }
   function drawActions(){
     ctx.setActions([h('button',{class:'icon-btn',type:'button','aria-label':'Options de la note',onclick:()=>{
-      const folder=db.all('note_folder').find(f=>f.id===data.folderId);
       sheet('Options de la note',close=>h('div',{class:'notes-options'},
-        h('button',{class:'notes-option-row',onclick:()=>{close();openFolderOptions();}},
-          icon(folder?.data.icon||'folder-plus'),folder?.data.title||'Ajouter au dossier'),
+        h('button',{class:'notes-option-row',onclick:()=>{close();openFolderMenu();}},
+          icon('folder-plus'),'Ajouter au dossier'),
         h('button',{class:'notes-option-row',onclick:()=>{
           data.pinned=!data.pinned;changed();flush();drawActions();close();
           toast(data.pinned?'Note épinglée':'Note désépinglée');
         }},icon('pin'),data.pinned?'Désépingler':'Épingler'),
         record?h('button',{class:'notes-option-row danger',onclick:async()=>{
           if(!confirm('Supprimer cette note ?'))return;
-          try{deleted=true;clearTimeout(timer);await chain;await db.remove(record.id);close();location.hash=backTo;}
+          try{deleted=true;clearTimeout(timer);await chain;const ids=noteFolders(data);await db.remove(record.id);for(const fid of ids)await pruneEmptyFolder(fid);close();location.hash=backTo;}
           catch(e){deleted=false;toast(errMsg(e));}
         }},icon('trash'),'Supprimer'):null));
     }},icon('dots'))]);
