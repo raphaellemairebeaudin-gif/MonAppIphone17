@@ -165,7 +165,7 @@ function start(s) {
   buildShell();
   route();
   if (!started) { window.addEventListener('hashchange', route); started = true; }
-  db.refresh();
+  db.refresh().then(() => window.finishLaunch?.()).catch(() => window.finishLaunch?.());
 }
 
 function showLogin() {
@@ -201,6 +201,7 @@ function showLogin() {
     },
   }, h('h1', {}, 'Mon app'), h('p', { class: 'sub' }, 'Connecte-toi pour retrouver tes données.'), email, pass, btn, err);
   root.replaceChildren(form);
+  window.finishLaunch?.();
 }
 
 db.sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') showLogin(); });
@@ -210,6 +211,11 @@ document.addEventListener('visibilitychange', () => {
 });
 
 (async () => {
-  const s = await db.getSession();
-  if (s) start(s); else showLogin();
+  try {
+    const s = await db.getSession();
+    if (s) start(s); else showLogin();
+  } catch (e) {
+    window.launchFailed?.();
+    root.replaceChildren(h('p', { class: 'err', style: { padding: '24px' } }, 'Erreur de démarrage : ' + (e?.message || 'connexion impossible')));
+  }
 })();
