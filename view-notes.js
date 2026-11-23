@@ -881,7 +881,7 @@ function editor(ctx, id) {
         icon('folder-plus'),'Ajouter nouveau dossier'),
       ...db.all('note_folder').filter(f=>noteFolders(data).includes(f.id)).map(f=>
         h('button',{class:'notes-option-row',onclick:()=>{close();openFolderOptions(f);}},
-          icon(f.data.icon||'folder'),h('span',{style:f.data.color?{color:f.data.color}:null},f.data.title))));
+          icon(f.data.icon||'folder'),h('span',{style:f.data.color?{color:f.data.color}:null},f.data.title)))));
   }
   function drawActions(){
     ctx.setActions([h('button',{class:'icon-btn',type:'button','aria-label':'Options de la note',onclick:()=>{
