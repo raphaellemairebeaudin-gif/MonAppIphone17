@@ -706,20 +706,34 @@ function editor(ctx, id) {
   editable.addEventListener('mouseup', rememberSelection);
   document.addEventListener('selectionchange', rememberSelection);
 
+  // Synchronisation clavier iOS : fonctionne avec clavier ouvert OU fermé,
+  // y compris quand l'application revient du mode arrière-plan.
+  let keyboardRecoveryTimers = [];
+  let keyboardPoll = 0;
+  let lastKeyboardGeometry = '';
   const positionToolbar = () => {
-    if (!toolbar.isConnected) return;
+    if (!toolbar.isConnected || document.hidden) return;
     const vp = window.visualViewport;
-    const visibleBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
-    const keyboardOpen = (document.activeElement === editable || document.activeElement === titleIn) && window.innerHeight - visibleBottom > 100;
+    const bodyRect = document.body.getBoundingClientRect();
+    const viewportBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
+    // Les coordonnées du body fixe sont utilisées pour éviter le décalage
+    // entre layout viewport et visual viewport après une reprise iOS.
+    const visibleBottom = viewportBottom - bodyRect.top;
+    const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
+    const keyboardOpen = layoutHeight - viewportBottom > 100;
     toolbar.classList.toggle('keyboard-visible', keyboardOpen);
-    toolbar.style.top = Math.max(0, visibleBottom - toolbar.offsetHeight) + 'px';
+    const top = Math.max(0, Math.min(bodyRect.height - toolbar.offsetHeight,
+      visibleBottom - toolbar.offsetHeight));
+    const nextTop = Math.round(top) + 'px';
+    if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
     positionSizeMenu();
   };
-  let keyboardRecoveryTimers = [];
   const clearKeyboardRecovery = () => {
     cancelAnimationFrame(keyboardFrame);
+    clearInterval(keyboardPoll);
     keyboardRecoveryTimers.forEach(clearTimeout);
     keyboardRecoveryTimers = [];
+    keyboardPoll = 0;
   };
   const followKeyboard = () => {
     clearKeyboardRecovery();
@@ -727,25 +741,44 @@ function editor(ctx, id) {
     const tick = () => {
       if (!toolbar.isConnected || document.hidden) return;
       positionToolbar();
-      if (++frames < 90) keyboardFrame = requestAnimationFrame(tick);
+      if (++frames < 120) keyboardFrame = requestAnimationFrame(tick);
     };
     keyboardFrame = requestAnimationFrame(tick);
-    // iOS peut rétablir visualViewport après pageshow, sans événement resize.
-    for (const delay of [120, 350, 700, 1200]) {
-      keyboardRecoveryTimers.push(setTimeout(() => {
-        if (!document.hidden && toolbar.isConnected) positionToolbar();
-      }, delay));
+    // iOS peut restaurer la géométrie du clavier plusieurs secondes après
+    // visibilitychange, sans émettre resize/scroll.
+    for (const delay of [150, 400, 800, 1400, 2400, 3500]) {
+      keyboardRecoveryTimers.push(setTimeout(positionToolbar, delay));
     }
+    // Filet de sécurité léger : surveiller les changements de géométrie
+    // même lorsque WebKit n'envoie plus d'événements au retour.
+    keyboardPoll = setInterval(() => {
+      if (document.hidden || !toolbar.isConnected) return;
+      const vp = window.visualViewport;
+      const geometry = [vp?.height, vp?.offsetTop, window.innerHeight,
+        document.documentElement.clientHeight, document.body.getBoundingClientRect().top].join(':');
+      if (geometry !== lastKeyboardGeometry) {
+        lastKeyboardGeometry = geometry;
+        positionToolbar();
+      }
+    }, 250);
   };
   const onResume = () => {
-    if (!document.hidden) followKeyboard();
+    if (document.hidden) {
+      clearKeyboardRecovery();
+      lastKeyboardGeometry = '';
+      return;
+    }
+    lastKeyboardGeometry = '';
+    followKeyboard();
   };
   document.addEventListener('visibilitychange', onResume);
   window.addEventListener('pageshow', onResume);
   window.addEventListener('focus', onResume);
-  window.visualViewport?.addEventListener('resize', positionToolbar);
+  window.addEventListener('orientationchange', followKeyboard);
+  window.visualViewport?.addEventListener('resize', followKeyboard);
   window.visualViewport?.addEventListener('scroll', positionToolbar);
-  window.addEventListener('resize', positionToolbar);
+  window.addEventListener('resize', followKeyboard);
+  document.addEventListener('scroll', positionToolbar, true);
   toolbar.addEventListener('scroll', positionSizeMenu, { passive: true });
   editable.addEventListener('focus', followKeyboard);
   editable.addEventListener('blur', followKeyboard);
@@ -818,9 +851,11 @@ function editor(ctx, id) {
     document.removeEventListener('visibilitychange', onResume);
     window.removeEventListener('pageshow', onResume);
     window.removeEventListener('focus', onResume);
-    window.visualViewport?.removeEventListener('resize', positionToolbar);
+    window.visualViewport?.removeEventListener('resize', followKeyboard);
     window.visualViewport?.removeEventListener('scroll', positionToolbar);
-    window.removeEventListener('resize', positionToolbar);
+    window.removeEventListener('resize', followKeyboard);
+    window.removeEventListener('orientationchange', followKeyboard);
+    document.removeEventListener('scroll', positionToolbar, true);
     document.removeEventListener('selectionchange', updateToolStates);
     document.removeEventListener('selectionchange', rememberSelection);
   });
