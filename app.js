@@ -49,6 +49,7 @@ let current = 'home';
 let backHref = null;
 let dataHandler = null;
 let leaveHandler = null;
+let suspendHandler = null;
 let started = false;
 let previousRouteHash = null;
 
@@ -68,6 +69,7 @@ function clearGesture() {
   document.documentElement.style.removeProperty('--gesture-x');
   document.documentElement.style.removeProperty('--drawer-progress');
   document.documentElement.style.removeProperty('--drawer-x');
+  document.documentElement.style.removeProperty('--gesture-duration');
   document.getElementById('notes-swipe-preview')?.remove();
   gesture = null;
 }
@@ -98,7 +100,8 @@ document.addEventListener('touchstart', e => {
   // la sélection de texte, les listes horizontales et le défilement.
   if (!menuOpen && t.clientX > 48) return;
   gesture = { id: t.identifier, startX: t.clientX, startY: t.clientY,
-    x: t.clientX, mode: menuOpen ? 'close' : note ? 'note' : 'open',
+    x: t.clientX, lastX: t.clientX, lastAt: performance.now(), velocity: 0,
+    mode: menuOpen ? 'close' : note ? 'note' : 'open',
     active: false, width: 0, progress: 0 };
 }, { passive: true });
 document.addEventListener('touchmove', e => {
@@ -126,6 +129,14 @@ document.addEventListener('touchmove', e => {
       ui.drawer.getBoundingClientRect().width;
   }
   if (e.cancelable) e.preventDefault();
+  const now = performance.now();
+  const elapsed = now - gesture.lastAt;
+  if (elapsed > 0) {
+    const instantaneous = (t.clientX - gesture.lastX) / elapsed;
+    gesture.velocity = gesture.velocity * .35 + instantaneous * .65;
+  }
+  gesture.lastX = t.clientX;
+  gesture.lastAt = now;
   const width = gesture.width || 1;
   const progress = gesture.mode === 'close' ? clamp(1 + dx / width, 0, 1) :
     clamp(dx / width, 0, 1);
@@ -138,7 +149,15 @@ function finishGesture(cancelled = false) {
   if (!gesture) return;
   const g = gesture;
   if (!g.active) { gesture = null; return; }
-  const commit = !cancelled && (g.mode === 'close' ? g.progress < .55 : g.progress > .42);
+  // La vitesse de la dernière portion du geste compte, sans empêcher
+  // d'annuler en ramenant le doigt dans l'autre sens.
+  const projected = clamp(g.progress + g.velocity * 120 / Math.max(1, g.width) *
+    (g.mode === 'close' ? 1 : 1), 0, 1);
+  const commit = !cancelled && (g.mode === 'close' ? projected < .5 : projected > .5);
+  const target = commit ? (g.mode === 'close' ? 0 : 1) : (g.mode === 'close' ? 1 : 0);
+  const remaining = Math.abs(target - g.progress);
+  const duration = Math.round(clamp(remaining * 220 / Math.max(1, Math.abs(g.velocity) * .45), 90, 230));
+  document.documentElement.style.setProperty('--gesture-duration', duration + 'ms');
   document.body.classList.remove('gesture-dragging');
   if (g.mode === 'note') {
     if (commit) {
@@ -150,10 +169,10 @@ function finishGesture(cancelled = false) {
         if (location.hash !== noteHash || !isNoteEditor()) return;
         skipNoteBackAnimation = true;
         location.hash = '#/notes';
-      }, 180);
+      }, duration);
     } else {
       document.documentElement.style.setProperty('--gesture-x', '0px');
-      gestureFinishTimer = setTimeout(clearGesture, 210);
+      gestureFinishTimer = setTimeout(clearGesture, duration);
     }
   } else {
     const targetProgress = commit ? (g.mode === 'close' ? 0 : 1) : (g.mode === 'close' ? 1 : 0);
@@ -162,7 +181,7 @@ function finishGesture(cancelled = false) {
     gestureFinishTimer = setTimeout(() => {
       setMenu(commit ? g.mode === 'open' : g.mode === 'close');
       clearGesture();
-    }, 210);
+    }, duration);
   }
   gesture = null;
 }
@@ -202,6 +221,7 @@ function buildShell() {
     setFab(fn) { fab.style.display = fn ? 'flex' : 'none'; fab.onclick = fn || null; },
     onData(fn) { dataHandler = fn; },
     onLeave(fn) { leaveHandler = fn; },
+    onSuspend(fn) { suspendHandler = fn; },
   };
   ui = { ctx, drawer };
 }
@@ -221,6 +241,7 @@ function renderRoute() {
   if (gestureFinishTimer || document.body.classList.contains('gesture-dragging')) clearGesture();
   if (leaveHandler) { try { leaveHandler(); } catch (e) { /* ignore */ } }
   leaveHandler = null;
+  suspendHandler = null;
   dataHandler = null;
   const [, name, param] = location.hash.split('/');
   current = views[name] ? name : 'home';
@@ -335,7 +356,9 @@ function showLogin() {
 db.sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') showLogin(); });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden' && leaveHandler) leaveHandler();
+  // Ne pas appeler onLeave ici : il détruit la barre d'outils alors que
+  // l'éditeur existe toujours au retour de l'arrière-plan.
+  if (document.visibilityState === 'hidden' && suspendHandler) suspendHandler();
 });
 
 (async () => {
