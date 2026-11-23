@@ -715,15 +715,34 @@ function editor(ctx, id) {
     toolbar.style.top = Math.max(0, visibleBottom - toolbar.offsetHeight) + 'px';
     positionSizeMenu();
   };
-  const followKeyboard = () => {
+  let keyboardRecoveryTimers = [];
+  const clearKeyboardRecovery = () => {
     cancelAnimationFrame(keyboardFrame);
+    keyboardRecoveryTimers.forEach(clearTimeout);
+    keyboardRecoveryTimers = [];
+  };
+  const followKeyboard = () => {
+    clearKeyboardRecovery();
     let frames = 0;
     const tick = () => {
+      if (!toolbar.isConnected || document.hidden) return;
       positionToolbar();
-      if (++frames < 45) keyboardFrame = requestAnimationFrame(tick);
+      if (++frames < 90) keyboardFrame = requestAnimationFrame(tick);
     };
     keyboardFrame = requestAnimationFrame(tick);
+    // iOS peut rétablir visualViewport après pageshow, sans événement resize.
+    for (const delay of [120, 350, 700, 1200]) {
+      keyboardRecoveryTimers.push(setTimeout(() => {
+        if (!document.hidden && toolbar.isConnected) positionToolbar();
+      }, delay));
+    }
   };
+  const onResume = () => {
+    if (!document.hidden) followKeyboard();
+  };
+  document.addEventListener('visibilitychange', onResume);
+  window.addEventListener('pageshow', onResume);
+  window.addEventListener('focus', onResume);
   window.visualViewport?.addEventListener('resize', positionToolbar);
   window.visualViewport?.addEventListener('scroll', positionToolbar);
   window.addEventListener('resize', positionToolbar);
@@ -795,7 +814,10 @@ function editor(ctx, id) {
     sizeMenu.remove();
     ctx.main.classList.remove('note-editing-host');
     if (timer) flush();
-    cancelAnimationFrame(keyboardFrame);
+    clearKeyboardRecovery();
+    document.removeEventListener('visibilitychange', onResume);
+    window.removeEventListener('pageshow', onResume);
+    window.removeEventListener('focus', onResume);
     window.visualViewport?.removeEventListener('resize', positionToolbar);
     window.visualViewport?.removeEventListener('scroll', positionToolbar);
     window.removeEventListener('resize', positionToolbar);
