@@ -1026,7 +1026,7 @@ html, body, #app, .drawer { background-color: var(--bg); }
   box-sizing: border-box;
   width: 21px;
   height: 21px;
-  border: 2px solid #888;
+  border: 2px solid #bcbcbc;
   border-radius: 50%;
   background: transparent;
   display: inline-grid;
