@@ -144,8 +144,8 @@ function vacationSheet(existing,redraw){
 }
 
 const accounts=()=>db.all('investment_account');
-const events=id=>db.all('investment_event').filter(x=>x.data.accountId===id).sort((a,b)=>a.data.date.localeCompare(b.data.date)||a.created_at.localeCompare(b.created_at));
-const balance=acc=>events(acc.id).reduce((v,e)=>{
+export const investmentEvents=id=>db.all('investment_event').filter(x=>x.data.accountId===id).sort((a,b)=>a.data.date.localeCompare(b.data.date)||a.created_at.localeCompare(b.created_at));
+export const investmentBalance=acc=>investmentEvents(acc.id).reduce((v,e)=>{
   const d=e.data;
   return d.type==='balance'?Number(d.amount):v+(d.type==='deposit'?1:-1)*Number(d.amount);
 },Number(acc.data.openingBalance||0));
@@ -153,25 +153,25 @@ export function investmentSection(){
   const wrap=h('div');
   const draw=()=>{
     const acc=accounts();
-    const total=acc.reduce((s,a)=>s+balance(a),0);
+    const total=acc.reduce((s,a)=>s+investmentBalance(a),0);
     wrap.replaceChildren(section('Placements',
       h('div',{class:'card'},h('div',{class:'lbl'},'Valeur totale déclarée'),h('div',{class:'big'},fmtMoney(total))),
       note('Soldes saisis manuellement, sans connexion bancaire. Chaque modification est enregistrée dans Supabase.'),
-      ...acc.map(a=>row(a.data.name,a.data.type||'Placement',h('strong',{},fmtMoney(balance(a))),()=>accountSheet(a,draw))),
-      h('div',{class:'btnrow'},btn('Ajouter un placement',()=>accountSheet(null,draw),'primary'))));
+      ...acc.map(a=>row(a.data.name,a.data.type||'Placement',h('strong',{},fmtMoney(balance(a))),()=>investmentAccountSheet(a,draw))),
+      h('div',{class:'btnrow'},btn('Ajouter un placement',()=>investmentAccountSheet(null,draw),'primary'))));
   };draw();return wrap;
 }
-function accountSheet(existing,redraw){
+export function investmentAccountSheet(existing,redraw){
   sheet(existing?'Placement · '+existing.data.name:'Nouveau placement',(close)=>{
     const name=h('input',{value:existing?.data.name||'',placeholder:'CELI, CELIAPP, Épargne Placements Québec…'});
     const type=h('input',{value:existing?.data.type||'',placeholder:'Type de compte'});
     const opening=h('input',{inputmode:'decimal',value:String(existing?.data.openingBalance||'')});
     const err=errorText();
-    const history=existing?events(existing.id):[];
+    const history=existing?investmentEvents(existing.id):[];
     return h('div',{},
       field('Nom du placement',name),field('Type',type),
       !existing&&field('Solde initial ($)',opening),
-      existing&&h('div',{class:'card'},h('div',{class:'lbl'},'Solde actuel'),h('div',{class:'big'},fmtMoney(balance(existing)))),
+      existing&&h('div',{class:'card'},h('div',{class:'lbl'},'Solde actuel'),h('div',{class:'big'},fmtMoney(investmentBalance(existing)))),
       existing&&h('div',{class:'btnrow'},
         btn('Modifier le solde',()=>investmentEventSheet(existing,'balance',redraw)),
         btn('Dépôt',()=>investmentEventSheet(existing,'deposit',redraw)),
@@ -194,7 +194,7 @@ function accountSheet(existing,redraw){
         },err),'primary')));
   });
 }
-function investmentEventSheet(account,type,redraw,existing){
+export function investmentEventSheet(account,type,redraw,existing){
   sheet(existing?'Modifier une opération':'Nouvelle opération',(close)=>{
     const d=existing?.data||{};
     const dt=h('input',{type:'date',value:d.date||today()});
