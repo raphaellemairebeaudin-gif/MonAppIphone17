@@ -1167,3 +1167,8 @@ html, body, #app, .drawer { background-color: var(--bg); }
 .budget-detail-empty{font-size:13px;color:var(--sec);padding:14px 0}
 
 .budget-detail-top-edit{font-size:25px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center}
+
+.budget-detail-investment-actions{display:flex;flex-wrap:wrap;gap:8px;padding-top:14px;border-top:1px solid var(--line)}
+.budget-detail-investment-actions .budget-card-add{flex:1 1 auto;font-size:12px}
+.budget-detail-operation[role=button]{cursor:pointer}
+.budget-detail-operation[role=button]:focus-visible{outline:2px solid var(--text);outline-offset:2px}
