@@ -4,7 +4,7 @@ import { h, icon, sheet, field, row, fmtMoney, fmtDate, num, today, errMsg } fro
 const accounts=()=>db.all('bank_account');
 const transfers=()=>db.all('bank_transfer');
 const events=id=>db.all('bank_event').filter(e=>e.data.accountId===id).sort((a,b)=>a.data.date.localeCompare(b.data.date)||a.created_at.localeCompare(b.created_at)||a.id.localeCompare(b.id));
-const balance=a=>{
+export const balance=a=>{
  const operations=[
   ...events(a.id).map(e=>({date:e.data.date,created:e.created_at,id:e.id,type:e.data.type,amount:Number(e.data.amount)})),
   ...transfers().filter(t=>t.data.fromId===a.id||t.data.toId===a.id).map(t=>({
