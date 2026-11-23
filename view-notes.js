@@ -108,7 +108,7 @@ export function render(ctx,param){
       ...folders.map(f=>h('div',{class:'notes-folder-tile'+(selectedFolderId===f.id?' selected':'')},
         h('button',{class:'notes-folder-open',style:f.data.color?{color:f.data.color}:null,onclick:()=>{selectedFolderId=f.id;draw();}},icon(f.data.icon||'folder'),h('span',{},f.data.title)),
         h('button',{class:'notes-folder-edit','aria-label':'Modifier '+f.data.title,onclick:()=>editFolder(f)},icon('dots')))));
-    const visible=selectedFolderId==='all'?notes:notes.filter(n=>hasFolder(n,selectedFolderId));
+    const visible=(selectedFolderId==='all'?notes:notes.filter(n=>hasFolder(n,selectedFolderId))).sort(sortUpdated);
     body.replaceChildren(strip,...(visible.length?visible.map(noteRow):[empty('Aucune note','Touche + pour créer une note.')]));
   }
   ctx.onData(draw);draw();
