@@ -18,6 +18,7 @@ export function render(ctx, param) {
   ctx.setHead('Budget', '');
   ctx.setActions([]);
   ctx.setFab(openAddMenu);
+  const overview = h('section', { class: 'budget-overview' });
   const section = h('section', { class: 'budget-cards-section' });
   const investmentsSection = h('section', { class: 'budget-cards-section' });
   const draw = () => {
@@ -59,6 +60,29 @@ export function render(ctx, param) {
       cards.length ? scroller : h('p', { class: 'budget-cards-empty' }, 'Aucune carte')
     );
     const investments = db.all('investment_account');
+    const debitTotal = cards.filter(a => a.data.type === 'checking').reduce((sum, a) => sum + balance(a), 0);
+    const creditTotal = cards.filter(a => a.data.type === 'credit').reduce((sum, a) => sum + balance(a), 0);
+    const investmentTotal = investments.reduce((sum, a) => sum + investmentBalance(a), 0);
+    const netCash = debitTotal - creditTotal;
+    const netWorth = netCash + investmentTotal;
+    const metric = (label, value) => h('div', { class: 'budget-overview-metric' },
+      h('span', {}, label), h('strong', {}, fmtMoney(value))
+    );
+    overview.replaceChildren(
+      h('div', { class: 'budget-overview-hero' },
+        h('span', { class: 'budget-overview-eyebrow' }, 'PATRIMOINE NET ESTIMÉ'),
+        h('strong', { class: 'budget-overview-total' }, fmtMoney(netWorth)),
+        h('p', {}, 'Solde débit − montant dû sur les cartes de crédit + placements')
+      ),
+      h('div', { class: 'budget-overview-grid' },
+        metric('Solde total débit', debitTotal),
+        metric('Dettes de crédit', creditTotal),
+        metric('Débit − crédit', netCash),
+        metric('Total des placements', investmentTotal)
+      ),
+      h('p', { class: 'budget-overview-footnote' },
+        'Calculé avec les soldes enregistrés dans l’application. Les montants ne sont pas synchronisés avec tes institutions financières.')
+    );
     investmentsSection.replaceChildren(
       h('div', { class: 'budget-cards-heading' },
         h('h2', {}, 'Mes Placements'),
@@ -89,7 +113,7 @@ export function render(ctx, param) {
     );
   };
   draw();
-  ctx.main.replaceChildren(section, investmentsSection);
+  ctx.main.replaceChildren(overview, section, investmentsSection);
   ctx.onData(draw);
 }
 
