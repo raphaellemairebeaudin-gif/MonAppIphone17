@@ -52,7 +52,7 @@ let touchStartTime = 0;
 
 document.addEventListener('touchstart', (e) => {
   if (!ui || e.touches.length !== 1) { touchStartX = null; return; }
-  if (document.querySelector('.sheet-wrap.open') || e.target.closest('.toolbar')) {
+  if (document.querySelector('.sheet-wrap.open') || e.target.closest('.toolbar, .budget-cards-scroll')) {
     touchStartX = null;
     return;
   }
