@@ -8,7 +8,7 @@ import * as home from './view-profile.js';
 import * as settings from './view-settings.js';
 
 const views = { home, train, notes, budget, supp, settings };
-const NAV = ['home', 'train', 'notes', 'budget', 'supp'];
+const NAV = ['train', 'notes', 'budget', 'supp'];
 const root = document.getElementById('app');
 
 window.addEventListener('error', (e) => {
