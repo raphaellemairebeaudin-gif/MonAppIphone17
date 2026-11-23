@@ -1,5 +1,5 @@
 import * as db from './db.js';
-import { h, icon, row, empty, fmtDate, toast, errMsg } from './ui.js';
+import { h, icon, row, empty, fmtDate, toast, errMsg, sheet, field } from './ui.js';
 
 export const meta = { label: 'Notes', icon: 'notes' };
 
@@ -7,37 +7,132 @@ const RICH = 'RICH_HTML:';
 const PREFIX_RE = /^(#{1,3} |- \[[ xX]\] |[-*] |\d+\. |> )/;
 let query = '';
 
-export function render(ctx, param) {
-  if (param) return editor(ctx, param);
-  ctx.setHead(meta.label, '');
-  const search = h('input', {
-    class: 'search', type: 'search', placeholder: 'Rechercher dans les notes', value: query,
-    oninput: () => { query = search.value; draw(); },
-  });
-  const body = h('div');
-  ctx.main.append(search, body);
-  ctx.setFab(() => { location.hash = '#/notes/new'; });
+const FOLDER_ICONS = ['folder', 'book', 'briefcase', 'heart', 'star', 'bulb', 'school', 'dumbbell', 'wallet', 'music'];
+const sortUpdated = (a,b) => (b.data.pinned ? 1 : 0) - (a.data.pinned ? 1 : 0) || b.updated_at.localeCompare(a.updated_at);
+const noteRow = n => {
+  const raw = n.data.body || '';
+  const first = raw.startsWith(RICH) ? (new DOMParser().parseFromString(raw.slice(RICH.length), 'text/html').body.textContent || '') : (raw.split('\n').find(l => l.trim()) || '');
+  return row(n.data.title || 'Sans titre', first.replace(PREFIX_RE, '').slice(0,80) || fmtDate(n.updated_at.slice(0,10)),
+    n.data.pinned ? h('span', {class:'pos'},icon('pin')) : null,
+    () => { location.hash = '#/notes/' + n.id; });
+};
 
-  function draw() {
-    const q = query.trim().toLowerCase();
-    const list = db.all('note')
-      .filter((n) => !q || (n.data.title || '').toLowerCase().includes(q) || (n.data.body || '').toLowerCase().includes(q))
-      .sort((a, b) => (b.data.pinned ? 1 : 0) - (a.data.pinned ? 1 : 0) || b.updated_at.localeCompare(a.updated_at));
-    ctx.setHead(meta.label, db.all('note').length + ' note' + (db.all('note').length > 1 ? 's' : ''));
-    if (!list.length) {
-      body.replaceChildren(q ? empty('Aucun résultat', 'Essaie un autre mot.') : empty('Écris ta première note', 'Touche + pour commencer.'));
+function editFolder(existing = null) {
+  sheet(existing ? 'Modifier le dossier' : 'Nouveau dossier', close => {
+    const title = h('input', { value: existing?.data.title || '', placeholder:'Nom du dossier' });
+    let chosen = existing?.data.icon || 'folder';
+    const choices = h('div', {class:'notes-icon-picker'});
+    const drawChoices = () => choices.replaceChildren(...FOLDER_ICONS.map(key =>
+      h('button', {type:'button',class:'notes-icon-choice' + (chosen===key?' selected':''),
+        'aria-label':key,onclick:()=>{chosen=key;drawChoices();}},icon(key))));
+    drawChoices();
+    const save = async () => {
+      const name=title.value.trim();
+      if(!name){toast('Entre un nom de dossier.');return;}
+      try {
+        if(existing) await db.update(existing.id,{...existing.data,title:name,icon:chosen});
+        else await db.add('note_folder',{title:name,icon:chosen});
+        close();
+      }catch(e){toast(errMsg(e));}
+    };
+    return h('div',{},field('Nom',title),h('p',{class:'notes-picker-label'},'Icône du dossier'),choices,
+      h('div',{class:'btnrow'},h('button',{class:'btn primary',onclick:save},'Enregistrer'),
+      existing ? h('button',{class:'btn danger',onclick:async()=>{
+        if(!confirm('Supprimer ce dossier ? Les catégories et les notes seront conservées, sans dossier.'))return;
+        try {
+          for(const n of db.all('note').filter(n=>n.data.folderId===existing.id))
+            await db.update(n.id,{...n.data,folderId:null,categoryId:null});
+          for(const c of db.all('note_category').filter(c=>c.data.folderId===existing.id)) await db.remove(c.id);
+          await db.remove(existing.id);close();location.hash='#/notes';
+        }catch(e){toast(errMsg(e));}
+      }},'Supprimer') : null));
+  });
+}
+function editCategory(folderId, existing=null) {
+  sheet(existing ? 'Modifier la catégorie' : 'Nouvelle catégorie', close=>{
+    const title=h('input',{value:existing?.data.title||'',placeholder:'Nom de la catégorie'});
+    const save=async()=>{
+      const name=title.value.trim();if(!name){toast('Entre un nom de catégorie.');return;}
+      try{
+        if(existing)await db.update(existing.id,{...existing.data,title:name});
+        else await db.add('note_category',{title:name,folderId});
+        close();
+      }catch(e){toast(errMsg(e));}
+    };
+    return h('div',{},field('Titre',title),h('div',{class:'btnrow'},
+      h('button',{class:'btn primary',onclick:save},'Enregistrer'),
+      existing ? h('button',{class:'btn danger',onclick:async()=>{
+        if(!confirm('Supprimer cette catégorie ? Les notes resteront dans le dossier.'))return;
+        try{
+          for(const n of db.all('note').filter(n=>n.data.categoryId===existing.id))
+            await db.update(n.id,{...n.data,categoryId:null});
+          await db.remove(existing.id);close();
+        }catch(e){toast(errMsg(e));}
+      }},'Supprimer') : null));
+  });
+}
+export function render(ctx, param) {
+  if(param && !param.startsWith('folder-') && param!=='all')return editor(ctx,param);
+  const folderId=param?.startsWith('folder-')?param.slice(7):null;
+  const folder=db.get(folderId);
+  if(folderId && (!folder||folder.kind!=='note_folder')){location.hash='#/notes';return;}
+  ctx.setHead(folder?folder.data.title:meta.label,'',{back:folder?'#/notes':undefined});
+  const body=h('div',{class:'notes-organizer'});
+  const search=h('input',{class:'search',type:'search',placeholder:'Rechercher dans les notes',value:query,
+    oninput:()=>{query=search.value;draw();}});
+  ctx.main.append(search,body);
+  const newNote=(fid=null,cid=null)=>{location.hash='#/notes/new~'+(fid||'')+'~'+(cid||'');};
+  ctx.setFab(()=>folder?editCategory(folder.id):editFolder());
+  function draw(){
+    const q=query.trim().toLowerCase();
+    const folders=db.all('note_folder').sort((a,b)=>a.created_at.localeCompare(b.created_at));
+    const allNotes=db.all('note');
+    const matching=n=>!q||(n.data.title||'').toLowerCase().includes(q)||(n.data.body||'').toLowerCase().includes(q);
+    const notes=allNotes.filter(matching).sort(sortUpdated);
+    if(!folder){
+      ctx.setHead('Notes',allNotes.length+' note'+(allNotes.length>1?'s':''));
+      const foldersHead=h('div',{class:'notes-section-heading'},h('h2',{},'Dossiers'),
+        h('button',{class:'notes-text-action',onclick:()=>editFolder()},icon('plus'),' Ajouter'));
+      const strip=h('div',{class:'notes-folder-strip'},
+        ...folders.map(f=>h('div',{class:'notes-folder-tile'},
+          h('button',{class:'notes-folder-open',onclick:()=>{location.hash='#/notes/folder-'+f.id;}},
+            icon(f.data.icon||'folder'),h('span',{},f.data.title)),
+          h('button',{class:'notes-folder-edit','aria-label':'Modifier '+f.data.title,onclick:()=>editFolder(f)},icon('dots')))),
+        h('button',{class:'notes-folder-create',onclick:()=>editFolder()},icon('plus'),h('span',{},'Dossier')));
+      const uncategorized=notes.filter(n=>!n.data.folderId || !folders.some(f=>f.id===n.data.folderId));
+      body.replaceChildren(foldersHead,strip,
+        h('div',{class:'notes-section-heading'},h('h2',{},q?'Résultats sans dossier':'Notes sans dossier'),
+          h('button',{class:'notes-text-action',onclick:()=>newNote()},icon('plus'),' Note')),
+        ...(uncategorized.length?uncategorized.map(noteRow):[empty('Aucune note sans dossier','Crée une note ou ouvre un dossier.')]));
+      if(q){
+        const found=notes.filter(n=>!uncategorized.includes(n));
+        if(found.length)body.append(h('h2',{class:'notes-section-title'},'Notes dans les dossiers'),...found.map(noteRow));
+      }
       return;
     }
-    body.replaceChildren(...list.map((n) => {
-      const raw = n.data.body || '';
-      const first = raw.startsWith(RICH) ? (new DOMParser().parseFromString(raw.slice(RICH.length), 'text/html').body.textContent || '') : (raw.split('\n').find((l) => l.trim()) || '');
-      return row(n.data.title || 'Sans titre', first.replace(PREFIX_RE, '').slice(0, 80) || fmtDate(n.updated_at.slice(0, 10)),
-        n.data.pinned ? h('span', { class: 'pos' }, icon('pin')) : null,
-        () => { location.hash = '#/notes/' + n.id; });
-    }));
+    ctx.setHead(folder.data.title,'');
+    const categories=db.all('note_category').filter(c=>c.data.folderId===folder.id)
+      .sort((a,b)=>a.created_at.localeCompare(b.created_at));
+    const content=[h('div',{class:'notes-section-heading'},h('h2',{},'Catégories'),
+      h('button',{class:'notes-text-action',onclick:()=>editCategory(folder.id)},icon('plus'),' Catégorie'))];
+    for(const category of categories){
+      const catNotes=notes.filter(n=>n.data.folderId===folder.id&&n.data.categoryId===category.id);
+      content.push(h('section',{class:'notes-category'},
+        h('div',{class:'notes-category-heading'},
+          h('h3',{},category.data.title),
+          h('button',{class:'notes-small-action','aria-label':'Ajouter une note',onclick:()=>newNote(folder.id,category.id)},icon('plus')),
+          h('button',{class:'notes-small-action','aria-label':'Modifier la catégorie',onclick:()=>editCategory(folder.id,category)},icon('dots'))),
+        ...catNotes.map(noteRow),
+        !catNotes.length?h('p',{class:'notes-category-empty'},'Aucune note'):null));
+    }
+    const loose=notes.filter(n=>n.data.folderId===folder.id&&!categories.some(c=>c.id===n.data.categoryId));
+    content.push(h('section',{class:'notes-category'},
+      h('div',{class:'notes-category-heading'},h('h3',{},'Sans catégorie'),
+        h('button',{class:'notes-small-action','aria-label':'Ajouter une note',onclick:()=>newNote(folder.id)},icon('plus'))),
+      ...loose.map(noteRow),!loose.length?h('p',{class:'notes-category-empty'},'Aucune note'):null));
+    body.replaceChildren(...content);
   }
-  ctx.onData(draw);
-  draw();
+  ctx.onData(draw);draw();
 }
 
 function inline(text) {
@@ -89,15 +184,18 @@ function renderMd(text, onToggle) {
 }
 
 function editor(ctx, id) {
-  let record = id === 'new' ? null : db.get(id);
-  if (id !== 'new' && !record) { location.hash = '#/notes'; return; }
-  const data = record ? { title: '', body: '', pinned: false, ...record.data } : { title: '', body: '', pinned: false };
+  const isNew=id==='new'||id.startsWith('new~');
+  const [,newFolderId='',newCategoryId='']=id.split('~');
+  let record = isNew ? null : db.get(id);
+  if (!isNew && !record) { location.hash = '#/notes'; return; }
+  const data = record ? { title: '', body: '', pinned: false, ...record.data } : { title: '', body: '', pinned: false, folderId:newFolderId||null, categoryId:newCategoryId||null };
+  const backTo = data.folderId ? '#/notes/folder-'+data.folderId : '#/notes';
   let timer = null;
   let chain = Promise.resolve();
   let deleted = false;
   let keyboardFrame = 0;
 
-  ctx.setHead('', '', { back: '#/notes' });
+  ctx.setHead('', '', { back: backTo });
   const status = h('span', { class: 'status' });
   const titleIn = h('input', {
     class: 'note-title', placeholder: 'Titre', value: data.title, enterkeyhint: 'next',
@@ -777,7 +875,7 @@ function editor(ctx, id) {
       } }, icon('pin')),
       record && h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Supprimer', onclick: async () => {
         if (!confirm('Supprimer cette note ?')) return;
-        try { deleted = true; clearTimeout(timer); await chain; await db.remove(record.id); location.hash = '#/notes'; }
+        try { deleted = true; clearTimeout(timer); await chain; await db.remove(record.id); location.hash = backTo; }
         catch (e) { deleted = false; toast(errMsg(e)); }
       } }, icon('trash')),
     ]);
