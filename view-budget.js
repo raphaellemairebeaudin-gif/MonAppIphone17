@@ -33,7 +33,11 @@ export function render(ctx) {
     const tx = db.all('tx').filter((t) => (t.data.date || '').startsWith(ym))
       .sort((a, b) => b.data.date.localeCompare(a.data.date) || b.created_at.localeCompare(a.created_at));
     const spent = tx.filter((t) => t.data.type !== 'income').reduce((n, t) => n + t.data.amount, 0);
-    const income = tx.filter((t) => t.data.type === 'income').reduce((n, t) => n + t.data.amount, 0);
+    const manualIncome = tx.filter((t) => t.data.type === 'income').reduce((n, t) => n + t.data.amount, 0);
+    const confirmedPay = db.all('pay_override').filter((p) => p.data.received && (p.data.payday || '').startsWith(ym));
+    const vacationPay = db.all('vacation_pay').filter((p) => (p.data.date || '').startsWith(ym));
+    const income = manualIncome + confirmedPay.reduce((n, p) => n + Number(p.data.amount || 0), 0)
+      + vacationPay.reduce((n, p) => n + Number(p.data.amount || 0), 0);
     const budget = db.getProfile().data.budget || 0;
     const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
 
@@ -56,13 +60,15 @@ export function render(ctx) {
         h('div', { class: 'top' }, h('span', {}, c), h('span', {}, fmtMoney(v))),
         h('div', { class: 'track' }, h('div', { style: { width: Math.round((v / spent) * 100) + '%' } }))))) : null;
 
-    const list = tx.length
+    const list = (tx.length || confirmedPay.length || vacationPay.length)
       ? h('div', {}, h('h3', { class: 'sec' }, 'Transactions'), tx.map((t) =>
         row(t.data.note || t.data.category || 'Sans titre',
           [t.data.category, fmtDate(t.data.date)].filter(Boolean).join(' · '),
           h('span', { class: t.data.type === 'income' ? 'pos' : '', style: { fontWeight: 500, whiteSpace: 'nowrap' } },
             (t.data.type === 'income' ? '+' : '−') + fmtMoney(t.data.amount)),
-          () => txSheet(t))))
+          () => txSheet(t))),
+        ...confirmedPay.map((p) => row('Salaire CCQ', fmtDate(p.data.payday) + ' · Paie confirmée', h('span', { class: 'pos' }, '+' + fmtMoney(p.data.amount)))),
+        ...vacationPay.map((p) => row('Paiement de vacances CCQ', fmtDate(p.data.date), h('span', { class: 'pos' }, '+' + fmtMoney(p.data.amount)))))
       : empty('Aucune transaction', 'Touche + pour ajouter une dépense ou un revenu.');
 
     body.replaceChildren(...[card, tiles, salarySection(ym), investmentSection(), catBox, list].filter(Boolean));
