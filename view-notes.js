@@ -766,6 +766,9 @@ function editor(ctx, id) {
       lastKeyboardGeometry = '';
       return;
     }
+    // Restaurer les éléments si une ancienne reprise iOS les a détachés.
+    if (!toolbar.isConnected) document.body.append(toolbar);
+    if (!sizeMenu.isConnected) document.body.append(sizeMenu);
     lastKeyboardGeometry = '';
     followKeyboard();
   };
@@ -843,6 +846,7 @@ function editor(ctx, id) {
   document.body.append(toolbar);
   // Hors du conteneur défilant : iOS positionne ainsi le menu en coordonnées écran.
   document.body.append(sizeMenu);
+  ctx.onSuspend(() => { if (timer) flush(); });
   ctx.onLeave(() => {
     closeSizeMenu();
     sizeMenu.remove();
