@@ -7,6 +7,7 @@ export const meta = { label: 'Budget', icon: 'wallet' };
 
 const CATS = ['Épicerie', 'Restaurant', 'Transport', 'Logement', 'Santé', 'Loisirs', 'Abonnements', 'Shopping', 'Autre'];
 let ym = today().slice(0, 7);
+let budgetTab = 'overview';
 
 const shift = (s, delta) => {
   const [y, m] = s.split('-').map(Number);
@@ -25,11 +26,20 @@ export function render(ctx) {
     h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Mois précédent', onclick: () => { ym = shift(ym, -1); draw(); } }, icon('chevron-left')),
     label,
     h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Mois suivant', onclick: () => { ym = shift(ym, 1); draw(); } }, icon('chevron-right')));
-  ctx.main.append(nav, body);
+  const tabs = h('div', { class: 'budget-tabs', role: 'tablist', 'aria-label': 'Sections du budget' });
+  ctx.main.append(tabs, nav, body);
   ctx.setFab(() => txSheet());
 
   function draw() {
     ctx.setHead(meta.label, '');
+    const choices = [['overview','Résumé'],['salary','Salaires'],['accounts','Comptes'],['investments','Placements'],['transactions','Transactions']];
+    tabs.replaceChildren(...choices.map(([key, text]) => h('button', {
+      type:'button', role:'tab', class:'budget-tab'+(budgetTab===key?' active':''),
+      'aria-selected':budgetTab===key?'true':'false',
+      onclick:()=>{ budgetTab=key; draw(); }
+    }, text)));
+    nav.hidden = budgetTab==='accounts'||budgetTab==='investments';
+    ctx.setFab(budgetTab==='overview'||budgetTab==='transactions'?()=>txSheet():null);
     label.textContent = monthLabel(ym);
     const tx = db.all('tx').filter((t) => (t.data.date || '').startsWith(ym))
       .sort((a, b) => b.data.date.localeCompare(a.data.date) || b.created_at.localeCompare(a.created_at));
@@ -72,7 +82,16 @@ export function render(ctx) {
         ...vacationPay.map((p) => row('Paiement de vacances CCQ', fmtDate(p.data.date), h('span', { class: 'pos' }, '+' + fmtMoney(p.data.amount)))))
       : empty('Aucune transaction', 'Touche + pour ajouter une dépense ou un revenu.');
 
-    body.replaceChildren(...[card, tiles, salarySection(ym), bankSection(), investmentSection(), catBox, list].filter(Boolean));
+    const page = {
+      overview: () => [card, tiles,
+        h('p',{class:'budget-explainer'},'Consulte tes salaires, tes comptes et tes placements dans les onglets ci-dessus.')],
+      salary: () => [salarySection(ym)],
+      accounts: () => [bankSection()],
+      investments: () => [investmentSection()],
+      transactions: () => [catBox, list]
+    };
+    body.replaceChildren(...(page[budgetTab]||page.overview)().filter(Boolean));
+    body.className='budget-content';
   }
   ctx.onData(draw);
   draw();
