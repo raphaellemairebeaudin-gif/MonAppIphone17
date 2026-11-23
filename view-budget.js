@@ -1,11 +1,15 @@
 import * as db from './db.js';
-import { h, field, sheet, num, errMsg, fmtMoney } from './ui.js';
+import { h, field, sheet, num, errMsg, fmtMoney, fmtDate } from './ui.js';
 import { balance } from './view-budget-banks.js';
 
 export const meta = { label: 'Budget', icon: 'wallet' };
 
 // Cartes affichées sur la page principale et utilisées dans le menu +.
-export function render(ctx) {
+export function render(ctx, param) {
+  if (param === 'card') {
+    renderCardDetail(ctx, decodeURIComponent(location.hash.split('/')[3] || ''));
+    return;
+  }
   ctx.setHead('Budget', '');
   ctx.setActions([]);
   ctx.setFab(openAddMenu);
@@ -24,7 +28,11 @@ export function render(ctx) {
       class: 'budget-cards-scroll',
       role: 'region', 'aria-label': 'Mes cartes', tabindex: '0'
     }, ...cards.map(card =>
-      h('div', { class: 'budget-bank-card' },
+      h('div', { class: 'budget-bank-card', role: 'button', tabindex: '0',
+        'aria-label': 'Voir les détails de ' + (card.data.name || 'la carte'),
+        onclick: (e) => { if (!e.target.closest('.budget-bank-card-edit')) location.hash = '#/budget/card/' + encodeURIComponent(card.id); },
+        onkeydown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button')) { e.preventDefault(); location.hash = '#/budget/card/' + encodeURIComponent(card.id); } }
+      },
         h('div', { class: 'budget-bank-card-top' },
           h('span', { class: 'budget-bank-card-type' },
             card.data.type === 'credit' ? 'CRÉDIT' : 'DÉBIT'),
@@ -52,6 +60,172 @@ export function render(ctx) {
   };
   draw();
   ctx.main.replaceChildren(section);
+  ctx.onData(draw);
+}
+
+
+function cardOperations(card) {
+  const events = db.all('bank_event').filter(e => e.data.accountId === card.id).map(e => ({
+    id: e.id, date: e.data.date || e.created_at?.slice(0, 10) || '',
+    created: e.created_at || '', type: e.data.type, amount: Number(e.data.amount) || 0,
+    note: e.data.note || '', source: 'event'
+  }));
+  const transfers = db.all('bank_transfer').filter(t =>
+    t.data.fromId === card.id || t.data.toId === card.id
+  ).map(t => ({
+    id: t.id, date: t.data.date || t.created_at?.slice(0, 10) || '',
+    created: t.created_at || '', type: 'transfer',
+    amount: Number(t.data.amount) || 0, note: t.data.note || '',
+    source: 'transfer', from: t.data.fromId === card.id,
+    other: t.data.fromId === card.id ? t.data.toId : t.data.fromId
+  }));
+  return [...events, ...transfers].sort((a, b) =>
+    a.date.localeCompare(b.date) || a.created.localeCompare(b.created) || a.id.localeCompare(b.id)
+  );
+}
+
+function operationDelta(op, credit) {
+  if (op.type === 'balance') return 0;
+  if (op.type === 'transfer') return op.from ? -op.amount : (credit ? -op.amount : op.amount);
+  return (op.type === 'increase' ? 1 : -1) * op.amount;
+}
+
+function historyData(card) {
+  const ops = cardOperations(card);
+  let amount = Number(card.data.openingBalance) || 0;
+  const points = [{ date: card.created_at?.slice(0, 10) || ops[0]?.date || '', value: amount }];
+  const credit = card.data.type === 'credit';
+  const history = ops.map(op => {
+    const before = amount;
+    amount = op.type === 'balance' ? op.amount : amount + operationDelta(op, credit);
+    points.push({ date: op.date, value: amount });
+    return { ...op, before, after: amount, delta: amount - before };
+  });
+  return { history, points, amount };
+}
+
+function cardChart(points, period) {
+  const cutoff = period === 'all' ? '' : (() => {
+    const d = new Date(); d.setDate(d.getDate() - Number(period));
+    return d.toISOString().slice(0, 10);
+  })();
+  const lastBefore = [...points].reverse().find(p => p.date < cutoff);
+  const visible = cutoff ? [
+    ...(lastBefore ? [{ date: cutoff, value: lastBefore.value }] : []),
+    ...points.filter(p => p.date >= cutoff)
+  ] : points;
+  const values = visible.length ? visible : [{ value: 0, date: '' }];
+  const min = Math.min(...values.map(p => p.value));
+  const max = Math.max(...values.map(p => p.value));
+  const span = Math.max(1, max - min);
+  const W = 320, H = 148, pad = 15;
+  const x = i => pad + i * (W - 2 * pad) / Math.max(1, values.length - 1);
+  const y = v => H - pad - ((v - min) / span) * (H - 2 * pad);
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 320 148');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Évolution du solde selon les opérations enregistrées');
+  svg.classList.add('budget-detail-chart-svg');
+  const line = document.createElementNS(ns, 'line');
+  for (const [k, v] of Object.entries({ x1: pad, x2: W-pad, y1: H-pad, y2: H-pad })) line.setAttribute(k, v);
+  line.setAttribute('class', 'budget-chart-axis'); svg.append(line);
+  const path = document.createElementNS(ns, 'path');
+  const coords = values.map((p, i) => [x(i), y(p.value)]);
+  path.setAttribute('d', coords.map(([a,b],i) => (i ? 'L' : 'M') + a.toFixed(2) + ' ' + b.toFixed(2)).join(' '));
+  path.setAttribute('class', 'budget-chart-line'); svg.append(path);
+  const last = coords[coords.length - 1];
+  const dot = document.createElementNS(ns, 'circle');
+  dot.setAttribute('cx', last[0]); dot.setAttribute('cy', last[1]); dot.setAttribute('r', 4);
+  dot.setAttribute('class', 'budget-chart-dot'); svg.append(dot);
+  return h('div', { class: 'budget-detail-chart' }, svg,
+    h('div', { class: 'budget-chart-labels' },
+      h('span', {}, values[0]?.date ? fmtDate(values[0].date) : 'Début'),
+      h('span', {}, values[values.length-1]?.date ? fmtDate(values[values.length-1].date) : 'Aujourd’hui')
+    )
+  );
+}
+
+function renderCardDetail(ctx, id) {
+  const account = db.get(id);
+  if (!account || account.kind !== 'bank_account') {
+    ctx.setHead('Carte introuvable', '', { back: '#/budget' });
+    ctx.main.replaceChildren(h('p', { class: 'budget-detail-empty' }, 'Cette carte est introuvable.'));
+    ctx.setFab(null); return;
+  }
+  ctx.setHead(account.data.name || 'Ma carte', '', { back: '#/budget' });
+  ctx.setFab(null);
+  let period = '90';
+  const root = h('div', { class: 'budget-detail' });
+  const draw = () => {
+    const card = db.get(id);
+    if (!card) { location.hash = '#/budget'; return; }
+    const credit = card.data.type === 'credit';
+    const { history, points, amount } = historyData(card);
+    const limit = Number(card.data.limit) || 0;
+    const summary = h('div', { class: 'budget-detail-summary' },
+      h('div', { class: 'budget-detail-metric budget-detail-primary' },
+        h('span', {}, credit ? 'Montant dû' : 'Solde disponible'),
+        h('strong', {}, fmtMoney(amount))
+      ),
+      credit && limit > 0 && h('div', { class: 'budget-detail-metrics' },
+        h('div', { class: 'budget-detail-metric' },
+          h('span', {}, 'Limite de crédit'), h('strong', {}, fmtMoney(limit))),
+        h('div', { class: 'budget-detail-metric' },
+          h('span', {}, 'Crédit disponible'), h('strong', {}, fmtMoney(limit - amount)))
+      )
+    );
+    const graph = h('section', { class: 'budget-detail-panel' },
+      h('div', { class: 'budget-detail-section-title' },
+        h('h2', {}, 'Évolution du solde'),
+        h('div', { class: 'budget-detail-periods' },
+          ...[['30','30 j'],['90','90 j'],['all','Tout']].map(([value,label]) =>
+            h('button', { type: 'button', class: period === value ? 'on' : '',
+              'aria-pressed': String(period === value),
+              onclick: () => { period = value; draw(); }
+            }, label))
+        )
+      ),
+      cardChart(points, period),
+      h('p', { class: 'budget-detail-hint' },
+        'Évolution basée sur les soldes et opérations enregistrés, sans connexion bancaire.')
+    );
+    const sorted = history.slice().reverse();
+    const historySection = h('section', { class: 'budget-detail-history' },
+      h('h2', {}, 'Historique des opérations'),
+      sorted.length ? h('div', { class: 'budget-detail-operations' },
+        ...sorted.map(op => {
+          const label = op.type === 'balance' ? 'Solde constaté'
+            : op.type === 'transfer' ? (op.from ? 'Virement sortant' : 'Remboursement / virement')
+            : op.type === 'increase' ? (credit ? 'Achat' : 'Dépôt')
+            : (credit ? 'Remboursement' : 'Retrait');
+          const related = op.other && db.get(op.other);
+          return h('div', { class: 'budget-detail-operation' },
+            h('div', { class: 'budget-detail-operation-info' },
+              h('strong', {}, op.note || label),
+              h('span', {}, fmtDate(op.date) + (op.note ? ' · ' + label : '') +
+                (related ? ' · ' + (related.data.name || 'Autre carte') : ''))
+            ),
+            h('div', { class: 'budget-detail-operation-amount' },
+              h('strong', {}, (op.type !== 'balance' && op.delta > 0 ? '+' : '') +
+                fmtMoney(op.type === 'balance' ? op.amount : op.delta)),
+              h('span', {}, 'Solde : ' + fmtMoney(op.after))
+            )
+          );
+        })
+      ) : h('p', { class: 'budget-detail-empty' }, 'Aucune opération enregistrée pour cette carte.')
+    );
+    root.replaceChildren(
+      h('div', { class: 'budget-detail-cardhead' },
+        h('span', {}, credit ? 'CARTE DE CRÉDIT' : 'CARTE DE DÉBIT'),
+        h('button', { type: 'button', class: 'budget-detail-edit',
+          onclick: () => cardSheet(draw, card) }, 'Modifier')
+      ),
+      graph, summary, historySection
+    );
+  };
+  draw();
+  ctx.main.replaceChildren(root);
   ctx.onData(draw);
 }
 
