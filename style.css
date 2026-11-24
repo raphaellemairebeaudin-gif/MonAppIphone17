@@ -1432,3 +1432,10 @@ body.gesture-note-back:not(.gesture-dragging) .toolbar{
 /* La barre fixe ne doit pas créer de couche transformée verticale sur iOS. */
 .toolbar{top:calc(100dvh - 54px - env(safe-area-inset-bottom,0px));transform:none;will-change:auto;backface-visibility:visible;}
 body.gesture-note-back .toolbar{transform:translateX(var(--gesture-x,0px));}
+
+/* Éditeur : seule la zone de contenu défile, pas la page entière. */
+body.note-editor-layout #app{display:flex;flex-direction:column;height:var(--note-editor-height,calc(100dvh - 54px));overflow:hidden;}
+body.note-editor-layout #app > .topbar{flex:none;position:relative;}
+body.note-editor-layout #app > .head{flex:none;}
+body.note-editor-layout .note-editing-host{flex:1 1 auto;min-height:0;width:100%;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding-bottom:24px;}
+body.note-editor-layout .rich-editor{min-height:40vh;}
