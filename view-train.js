@@ -26,6 +26,7 @@ async function savePlan(days, name) {
 }
 function addMenu() {
   sheet('Ajouter', close => h('div', { class: 'notes-options' },
+    h('button', { class: 'notes-option-row', onclick: () => { close(); workoutSheet(null,{initialData:{name:'Séance libre',date:today(),exercises:[]}}); } }, icon('player-play'), 'Démarrer une séance libre'),
     h('button', { class: 'notes-option-row', onclick: () => { close(); workoutSheet(); } },
       icon('barbell'), 'Nouvel entraînement'),
     h('button', { class: 'notes-option-row', onclick: () => { close(); weekPlanSheet(); } },
@@ -270,19 +271,34 @@ function muscleImage(ex) {
   const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 88"><g fill="#777"><circle cx="30" cy="10" r="7"/><path d="M23 19 L37 19 L44 25 L53 44 L48 48 L39 33 L38 48 L43 80 L35 82 L30 57 L25 82 L17 80 L22 48 L21 33 L12 48 L7 44 L16 25Z"/></g><g fill="#eee">'+(zones[ex[5]]||zones.core)+'</g></svg>';
   return h('img',{class:'train-muscle-img',src:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg),alt:'Schéma musculaire indicatif'});
 }
+function trainPage(title, build, options={}) {
+  const page=h('section',{class:'train-page'});
+  const previous=document.querySelector('.train-page:last-of-type');
+  const close=()=>{page.remove();if(previous?.isConnected)previous.inert=false;};
+  if(previous)previous.inert=true;
+  const actions=h('div',{class:'train-page-actions'});
+  const heading=h('h1',{},title);
+  const header=h('header',{class:'train-page-header'},h('button',{class:'icon-btn','aria-label':'Retour',onclick:()=>{if(!options.confirm||confirm('Quitter cette séance sans enregistrer ?'))close();}},icon('chevron-left')),heading,actions);
+  const content=h('div',{class:'train-page-content'});
+  const footer=h('footer',{class:'train-page-footer'});
+  page.append(header,content,footer);
+  content.append(build(close,{actions,footer,heading}));
+  document.body.append(page);
+  return close;
+}
 function exerciseDetails(name,onSelect) {
   const ex=exerciseInfo(name);
   const sessions=db.all('workout').filter(isCompleted).flatMap(w=>(w.data.exercises||[]).filter(e=>e.name.toLowerCase()===name.toLowerCase()).map(e=>({date:w.data.date,sets:e.sets||[]})));
   const best=Math.max(0,...sessions.flatMap(w=>w.sets.map(s=>Number(s.weight)||0)));
-  sheet(name,close=>h('div',{},
+  trainPage(name,close=>h('div',{},
     h('div',{class:'train-info-hero'},muscleImage(ex)),
     field('Muscle principal',h('p',{},ex[1])),field('Muscles secondaires',h('p',{},ex[2])),field('Équipement',h('p',{},ex[3])),
     h('h3',{class:'sec'},'Exécution'),h('p',{},ex[4]),
     h('div',{class:'card'},h('strong',{},'Statistiques personnelles'),h('p',{},sessions.length+' séances · Record de charge : '+(best?best+' kg':'—')),h('p',{},lastPerformance(name)||'Aucun historique')),
-    onSelect?h('button',{class:'btn primary',onclick:()=>{onSelect(name);close();}},'Ajouter à la séance'):null));
+    onSelect?h('button',{class:'btn primary',onclick:()=>{close();onSelect(name);}},'Ajouter à la séance'):null));
 }
 function openExercisePicker(onSelect, muscle) {
-  sheet('Ajouter un exercice',close=>buildExercisePicker(name=>{onSelect(name);close();},muscle));
+  trainPage('Ajouter un exercice',close=>buildExercisePicker(name=>{onSelect(name);close();},muscle));
 }
 function buildExercisePicker(onSelect, initialMuscle='') {
   const searchIn=h('input',{placeholder:'Rechercher un exercice…',oninput:drawList});
@@ -293,7 +309,7 @@ function buildExercisePicker(onSelect, initialMuscle='') {
     const q=searchIn.value.trim().toLowerCase();
     const names=[...new Set([...CATALOG.map(e=>e[0]),...db.all('exercise').map(e=>e.data.name)])];
     const matches=names.filter(n=>{const e=exerciseInfo(n);return (!filter.value||e[1]===filter.value)&&(!q||e.slice(0,4).join(' ').toLowerCase().includes(q));});
-    list.replaceChildren(...matches.map(n=>{const e=exerciseInfo(n);return h('div',{class:'row train-catalog-row'},muscleImage(e),h('button',{class:'train-info-link grow',onclick:()=>exerciseDetails(n)},h('strong',{},n),h('span',{class:'s'},e[1]+' · '+e[3])),h('button',{class:'icon-btn',onclick:()=>onSelect(n),'aria-label':'Ajouter '+n},icon('plus')));}),
+    list.replaceChildren(...matches.map(n=>{const e=exerciseInfo(n);return h('div',{class:'row train-catalog-row'},muscleImage(e),h('button',{class:'train-info-link grow',onclick:()=>exerciseDetails(n,name=>onSelect(name))},h('strong',{},n),h('span',{class:'s'},e[1]+' · '+e[3])),h('button',{class:'icon-btn',onclick:()=>onSelect(n),'aria-label':'Ajouter '+n},icon('plus')));}),
       q&&!names.some(n=>n.toLowerCase()===q)?h('button',{class:'btn',onclick:()=>onSelect(searchIn.value.trim())},'+ Créer « '+searchIn.value.trim()+' »'):null);
   }
   drawList();return h('div',{},searchIn,field('Muscle',filter),list);
@@ -345,7 +361,7 @@ function workoutSheet(existing, opts = {}) {
       ? 'Modifier l’entraînement'
       : 'Nouvel entraînement';
 
-  sheet(title, (close) => {
+  trainPage(title, (close, page) => {
     const err = h('p', { class: 'err' });
 
     const name = h('input', {
@@ -371,6 +387,11 @@ function workoutSheet(existing, opts = {}) {
       },
     });
 
+    const active=!!(opts.startNow||opts.initialData);
+    const started=Date.now();
+    const elapsed=h('span',{class:'s train-elapsed'});
+    page.actions.append(saveBtn);
+    if(active){page.heading.textContent=d.name||'Séance libre';page.actions.prepend(elapsed);}
     const exBox = h('div');
 
     const addExercise = (exName) => {
@@ -389,7 +410,7 @@ function workoutSheet(existing, opts = {}) {
     function tick(){if(deadline){remaining=Math.max(0,Math.ceil((deadline-Date.now())/1000));if(!remaining){deadline=0;toast('Repos terminé');}}clock.textContent=String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0');toggle.textContent=deadline?'Pause':'Démarrer';}
     function startRest(){remaining=restSeconds;deadline=Date.now()+remaining*1000;tick();}
     const timer=h('div',{class:'card train-timer'},h('div',{class:'s'},'Temps de repos'),h('div',{class:'train-timer-row'},h('button',{class:'icon-btn',onclick:()=>{deadline=0;remaining=restSeconds;tick();}},icon('refresh')),clock,toggle,h('button',{class:'icon-btn',onclick:()=>sheet('Temps de repos',done=>{const input=h('input',{type:'number',min:5,max:3600,value:restSeconds});const auto=h('input',{type:'checkbox',checked:autoRest});return h('div',{},field('Secondes',input),field('Démarrage automatique',auto),h('button',{class:'btn primary',onclick:()=>{restSeconds=Math.max(5,Math.min(3600,Number(input.value)||120));autoRest=auto.checked;d.restSeconds=restSeconds;d.autoRest=autoRest;deadline=0;remaining=restSeconds;tick();done();}},'Enregistrer'));})},icon('settings'))));
-    tick();const interval=setInterval(()=>{if(!timer.isConnected){clearInterval(interval);return;}tick();},250);
+    tick();const interval=setInterval(()=>{if(!timer.isConnected){clearInterval(interval);return;}tick();const seconds=Math.floor((Date.now()-started)/1000);elapsed.textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');},250);
     function drawEx() {
       exBox.replaceChildren(
         ...d.exercises.map((ex, i) =>
@@ -481,6 +502,7 @@ function workoutSheet(existing, opts = {}) {
       if (opts.startNow || opts.initialData) {
         d.status = 'completed';
         d.completedAt = new Date().toISOString();
+        d.durationSeconds = Math.floor((Date.now()-started)/1000);
       } else if (!existing || !isCompleted(existing)) {
         d.status = 'planned';
       } else {
@@ -513,14 +535,13 @@ function workoutSheet(existing, opts = {}) {
     }
 
     drawEx();
-
+    page.footer.append(timer);
     return h('div', {},
-      field('Nom', name),
-      field('Date', date),
+      active ? null : field('Nom', name),
+      active ? null : field('Date', date),
       h('h3', { class: 'sec' }, 'Exercices de la séance'),
       exBox,
       h('button',{class:'btn',onclick:()=>openExercisePicker(addExercise)},'+ Ajouter un exercice'),
-      timer,
       err,
       h('div', { class: 'btnrow' },
         existing && h('button', {
@@ -537,10 +558,10 @@ function workoutSheet(existing, opts = {}) {
             }
           },
         }, 'Supprimer'),
-        saveBtn
+        null
       )
     );
-  });
+  }, {confirm:true});
 }
 
 function weekPlanSheet() {
