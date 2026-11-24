@@ -75,16 +75,34 @@ function clearGesture() {
   gesture = null;
 }
 function noteSwipePreview() {
-  const preview = h('div', { id: 'notes-swipe-preview', 'aria-hidden': 'true' },
-    h('div', { class: 'notes-swipe-heading' }, h('span', {}, 'Notes'),
-      h('span', { class: 'notes-swipe-sub' }, db.all('note').length + ' notes')));
-  const notes = db.all('note').slice().sort((a, b) =>
-    Number(!!b.data.pinned) - Number(!!a.data.pinned) ||
-    (b.updated_at || '').localeCompare(a.updated_at || ''));
-  for (const n of notes.slice(0, 15)) {
-    preview.append(h('div', { class: 'notes-swipe-row' },
-      h('strong', {}, n.data.title || 'Sans titre')));
-  }
+  // Afficher la véritable vue Notes derrière l'éditeur pendant le geste.
+  // Le contexte est isolé : aucune action, aucun écouteur de données global
+  // et aucun changement de route avant que le retour soit confirmé.
+  const preview = h('div', { id: 'notes-swipe-preview', 'aria-hidden': 'true' });
+  const header = h('header', { class: 'topbar' },
+    h('div', { class: 'bar' },
+      h('button', { class: 'icon-btn', type: 'button', tabindex: '-1' }, icon('menu-2')),
+      h('div', { class: 'actions' })));
+  const subtitle = h('p', { class: 'sub' });
+  const heading = h('h1');
+  const head = h('div', { class: 'head' }, subtitle, heading);
+  const main = h('main');
+  const fab = h('button', { class: 'fab', type: 'button', tabindex: '-1' }, icon('plus'));
+  preview.append(header, head, main, fab);
+  const previewCtx = {
+    main, session,
+    setHead(title, sub) {
+      heading.textContent = title || '';
+      subtitle.textContent = sub || '';
+      head.hidden = !title && !sub;
+    },
+    setActions() {},
+    setFab(fn) { fab.style.display = fn ? 'flex' : 'none'; },
+    onData() {},
+    onLeave() {},
+    onSuspend() {}
+  };
+  views.notes.render(previewCtx, 'all');
   document.body.append(preview);
 }
 document.addEventListener('touchstart', e => {
