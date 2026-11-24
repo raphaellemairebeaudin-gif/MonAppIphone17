@@ -721,7 +721,9 @@ function editor(ctx, id) {
     toolbar.classList.toggle('keyboard-visible', layoutHeight - visibleBottom > 100);
     const top = Math.max(0, visibleBottom - toolbar.offsetHeight);
     const nextTop = top + 'px';
-    if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
+    if (toolbar.style.getPropertyValue('--note-toolbar-y') !== nextTop) {
+      toolbar.style.setProperty('--note-toolbar-y', nextTop);
+    }
     positionSizeMenu();
   };
   const clearKeyboardRecovery = () => {
@@ -781,9 +783,9 @@ function editor(ctx, id) {
   window.addEventListener('focus', onResume);
   window.addEventListener('orientationchange', followKeyboard);
   window.visualViewport?.addEventListener('resize', followKeyboard);
-  window.visualViewport?.addEventListener('scroll', positionToolbar);
+  window.visualViewport?.addEventListener('scroll', followKeyboard);
   window.addEventListener('resize', followKeyboard);
-  document.addEventListener('scroll', positionToolbar, true);
+  document.addEventListener('scroll', followKeyboard, { capture: true, passive: true });
   toolbar.addEventListener('scroll', positionSizeMenu, { passive: true });
   editable.addEventListener('focus', followKeyboard);
   editable.addEventListener('blur', followKeyboard);
@@ -862,10 +864,10 @@ function editor(ctx, id) {
     window.removeEventListener('pageshow', onResume);
     window.removeEventListener('focus', onResume);
     window.visualViewport?.removeEventListener('resize', followKeyboard);
-    window.visualViewport?.removeEventListener('scroll', positionToolbar);
+    window.visualViewport?.removeEventListener('scroll', followKeyboard);
     window.removeEventListener('resize', followKeyboard);
     window.removeEventListener('orientationchange', followKeyboard);
-    document.removeEventListener('scroll', positionToolbar, true);
+    document.removeEventListener('scroll', followKeyboard, true);
     document.removeEventListener('selectionchange', updateToolStates);
     document.removeEventListener('selectionchange', rememberSelection);
   });
