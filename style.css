@@ -1357,3 +1357,24 @@ body.gesture-note-back:not(.gesture-dragging) .note-size-menu{
   min-height:0;
   overflow:hidden;
 }
+
+/* Passage continu de l'aperçu interactif à la vraie page Notes. */
+#notes-swipe-handoff{
+  position:fixed;
+  inset:0;
+  z-index:60;
+  display:flex;
+  flex-direction:column;
+  padding:0;
+  background:var(--bg);
+  color:var(--text);
+  pointer-events:none;
+  overflow:hidden;
+  opacity:1;
+  transition:opacity 170ms ease-out;
+}
+#notes-swipe-handoff main{flex:1 1 auto;min-height:0;overflow:hidden}
+#notes-swipe-handoff.notes-swipe-handoff-done{opacity:0}
+@media(prefers-reduced-motion:reduce){
+  #notes-swipe-handoff{transition-duration:.01ms}
+}
