@@ -1438,4 +1438,8 @@ body.note-editor-layout #app{display:flex;flex-direction:column;height:var(--not
 body.note-editor-layout #app > .topbar{flex:none;position:relative;}
 body.note-editor-layout #app > .head{flex:none;}
 body.note-editor-layout .note-editing-host{flex:1 1 auto;min-height:0;width:100%;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding-bottom:24px;}
-body.note-editor-layout .rich-editor{min-height:40vh;}
+body.note-editor-layout .note-editing-host{display:flex;flex-direction:column;overflow-anchor:none;}
+body.note-editor-layout .note-title,body.note-editor-layout .status{flex:none;}
+body.note-editor-layout .rich-editor{min-height:0;flex:1 0 auto;}
+body.note-editor-layout #app{overscroll-behavior:none;}
+body.note-editor-layout .note-editing-host{overscroll-behavior:none;}
