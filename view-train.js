@@ -15,38 +15,29 @@ const DAYS = [
 ];
 
 function getPlan() {
-  const [planRow] = db.all('plan');
-  return {
-    row: planRow || null,
-    days: (planRow && planRow.data && planRow.data.days) || {},
-  };
+  const plans = db.all('plan').sort((a,b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+  const row = plans.find(p => p.data.active !== false) || null;
+  return { row, days: row?.data.days || {}, name: row?.data.name || 'Mon plan' };
 }
-
-async function savePlan(days) {
-  const { row: planRow } = getPlan();
-
-  if (planRow) return db.update(planRow.id, { days });
-  return db.add('plan', { days });
+async function savePlan(days, name) {
+  const { row } = getPlan();
+  if (row) return db.update(row.id, { ...row.data, name: name || row.data.name || 'Mon plan', days, active: true });
+  return db.add('plan', { name: name || 'Mon plan', days, active: true });
+}
+function addMenu() {
+  sheet('Ajouter', close => h('div', { class: 'notes-options' },
+    h('button', { class: 'notes-option-row', onclick: () => { close(); workoutSheet(); } },
+      icon('barbell'), 'Nouvel entraînement'),
+    h('button', { class: 'notes-option-row', onclick: () => { close(); weekPlanSheet(); } },
+      icon('calendar-repeat'), 'Nouveau plan d’entraînement')
+  ));
 }
 
 export function render(ctx) {
   ctx.setHead(meta.label, longDate());
 
-  ctx.setActions([
-    h('button', {
-      class: 'pill',
-      type: 'button',
-      style: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        marginRight: '8px',
-      },
-      onclick: () => weekPlanSheet(),
-    }, icon('calendar-repeat'), 'Plan semaine'),
-  ]);
-
-  ctx.setFab(() => workoutSheet());
+  ctx.setActions([]);
+  ctx.setFab(addMenu);
 
   const body = h('div');
   ctx.main.append(body);
@@ -56,7 +47,7 @@ export function render(ctx) {
       const now = today();
       const dow = new Date().getDay();
       const todayInfo = DAYS.find((d) => d.idx === dow);
-      const { days } = getPlan();
+      const { row: activePlan, days, name: planName } = getPlan();
       const todayRoutine = days[String(dow)];
 
       const allWorkouts = db.all('workout');
@@ -77,7 +68,14 @@ export function render(ctx) {
 
       const sections = [];
 
-      if (todayRoutine && todayRoutine.name) {
+      if (activePlan) {
+        sections.push(h('div', { class: 'card row tap', onclick: weekPlanSheet },
+          h('div', { class: 'grow' }, h('div', { class: 't' }, planName),
+            h('div', { class: 's' }, 'Plan actif · Répété chaque semaine')),
+          icon('chevron-right')));
+      }
+
+      if (todayRoutine && (todayRoutine.exercises || []).length) {
         const exCount = (todayRoutine.exercises || []).length;
 
         sections.push(
@@ -104,7 +102,7 @@ export function render(ctx) {
               h('div', { class: 'grow' },
                 h('div', {
                   style: { fontSize: '18px', fontWeight: 600 },
-                }, todayRoutine.name),
+                }, todayInfo.label),
                 h('div', { class: 's' },
                   exCount ? plur(exCount, 'exercice') : 'Séance libre')
               ),
@@ -197,7 +195,7 @@ export function render(ctx) {
 
 function startFromTemplate(routine) {
   const prefilled = {
-    name: routine.name,
+    name: DAYS.find(d => d.idx === new Date().getDay())?.label || 'Séance',
     date: today(),
     exercises: (routine.exercises || []).map((ex) => {
       const lastSets = lastExerciseSets(ex.name);
@@ -646,221 +644,103 @@ function workoutSheet(existing, opts = {}) {
 }
 
 function weekPlanSheet() {
-  sheet('Plan de la semaine', (close) => {
+  const currentPlan = getPlan();
+  const editing = !!currentPlan.row;
+  const planName = h('input', {
+    value: editing ? currentPlan.name : '',
+    placeholder: 'Nom du plan',
+    oninput: () => { draftName = planName.value; }
+  });
+  let draftName = editing ? currentPlan.name : '';
+  let draftDays = JSON.parse(JSON.stringify(editing ? currentPlan.days : {}));
+  sheet(editing ? 'Plan d’entraînement' : 'Nouveau plan d’entraînement', close => {
     const body = h('div');
-
-    function drawDays() {
-      const { days } = getPlan();
-
+    const err = h('p', { class: 'err' });
+    const drawDays = () => {
       body.replaceChildren(
-        h('p', {
-          class: 'hint',
-          style: { marginTop: '4px' },
-        }, 'Configure tes journées types. Ce programme recommence automatiquement chaque semaine.'),
-
-        ...DAYS.map((day) => {
-          const item = days[String(day.idx)];
-          const exCount = item && item.exercises
-            ? item.exercises.length
-            : 0;
-
-          return row(
-            day.label,
-            item && item.name
-              ? `${item.name} · ${plur(exCount, 'exercice')}`
-              : 'Repos / Libre',
+        field('Nom du plan', planName),
+        h('p', { class: 'hint' }, 'Ce plan se répète chaque semaine jusqu’à ce que tu y mettes fin. Choisis les jours où tu souhaites t’entraîner.'),
+        ...DAYS.map(day => {
+          const exercises = draftDays[String(day.idx)]?.exercises || [];
+          return row(day.label,
+            exercises.length ? plur(exercises.length, 'exercice') : 'Repos / Aucun exercice',
             icon('chevron-right'),
-            () => dayPlanSheet(day, drawDays)
-          );
+            () => dayPlanSheet(day, draftDays, drawDays));
         }),
-
+        err,
         h('div', { class: 'btnrow' },
-          h('button', {
-            class: 'btn primary',
-            type: 'button',
-            onclick: close,
-          }, 'Terminer')
+          editing ? h('button', { class: 'btn danger', onclick: async () => {
+            if (!confirm('Mettre fin à ce plan d’entraînement ? Les séances déjà enregistrées seront conservées.')) return;
+            try {
+              await db.update(currentPlan.row.id, { ...currentPlan.row.data, active: false, endedAt: new Date().toISOString() });
+              toast('Plan terminé');
+              close();
+            } catch (e) { err.textContent = errMsg(e); }
+          } }, 'Mettre fin au plan') : null,
+          h('button', { class: 'btn primary', onclick: async () => {
+            if (!draftName.trim()) { err.textContent = 'Donne un nom à ton plan.'; return; }
+            try {
+              await savePlan(draftDays, draftName.trim());
+              await ensureExercisesInLibrary(Object.values(draftDays).flatMap(d => d.exercises || []));
+              toast('Plan enregistré');
+              close();
+            } catch (e) { err.textContent = errMsg(e); }
+          } }, editing ? 'Enregistrer les modifications' : 'Créer le plan')
         )
       );
-    }
-
+    };
     drawDays();
     return body;
   });
 }
 
-function dayPlanSheet(day, onSaved) {
-  const { days } = getPlan();
-  const existing = days[String(day.idx)];
-
-  const d = existing
-    ? JSON.parse(JSON.stringify(existing))
-    : {
-        name: '',
-        exercises: [],
-      };
-
-  d.exercises = d.exercises || [];
-
-  sheet(`Programme · ${day.label}`, (close) => {
+function dayPlanSheet(day, draftDays, onSaved) {
+  const exercises = JSON.parse(JSON.stringify(draftDays[String(day.idx)]?.exercises || []));
+  sheet(day.label, close => {
     const err = h('p', { class: 'err' });
-
-    const name = h('input', {
-      value: d.name,
-      placeholder: 'Ex. Pectoraux / Triceps, Jambes…',
-      oninput: () => {
-        d.name = name.value;
-      },
-    });
-
     const exBox = h('div');
-
-    const picker = buildExercisePicker((exName) => {
-      d.exercises.push({
-        name: exName,
-        sets: [{ reps: '', weight: '' }],
-      });
-
+    const picker = buildExercisePicker(name => {
+      exercises.push({ name, sets: lastExerciseSets(name) || [{ reps: '', weight: '' }] });
       drawEx();
     });
-
     function drawEx() {
-      exBox.replaceChildren(
-        ...d.exercises.map((ex, i) =>
-          h('div', { class: 'exblock' },
-            h('div', { class: 'exhead' },
-              h('strong', {}, ex.name),
-              h('button', {
-                class: 'icon-btn sm',
-                type: 'button',
-                'aria-label': 'Retirer l’exercice',
-                onclick: () => {
-                  d.exercises.splice(i, 1);
-                  drawEx();
-                },
-              }, icon('trash'))
-            ),
-            ex.sets.map((s, j) =>
-              h('div', { class: 'setrow' },
-                h('span', {}, String(j + 1)),
-                h('input', {
-                  inputmode: 'numeric',
-                  placeholder: 'reps',
-                  value: s.reps,
-                  oninput: (e) => {
-                    s.reps = e.target.value;
-                  },
-                }),
-                h('span', {}, '×'),
-                h('input', {
-                  inputmode: 'decimal',
-                  placeholder: 'kg',
-                  value: s.weight,
-                  oninput: (e) => {
-                    s.weight = e.target.value;
-                  },
-                }),
-                h('button', {
-                  class: 'icon-btn sm',
-                  type: 'button',
-                  'aria-label': 'Retirer la série',
-                  onclick: () => {
-                    ex.sets.splice(j, 1);
-                    drawEx();
-                  },
-                }, icon('x'))
-              )
-            ),
-            h('button', {
-              class: 'link',
-              type: 'button',
-              onclick: () => {
-                const l = ex.sets.at(-1) || {
-                  reps: '',
-                  weight: '',
-                };
-
-                ex.sets.push({
-                  reps: l.reps,
-                  weight: l.weight,
-                });
-
-                drawEx();
-              },
-            }, '+ Ajouter une série')
-          )
-        )
-      );
+      exBox.replaceChildren(...exercises.map((ex, i) => h('div', { class: 'exblock' },
+        h('div', { class: 'exhead' }, h('strong', {}, ex.name),
+          h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Retirer l’exercice',
+            onclick: () => { exercises.splice(i, 1); drawEx(); } }, icon('trash'))),
+        ...(ex.sets || []).map((set, j) => h('div', { class: 'setrow' },
+          h('span', {}, String(j + 1)),
+          h('input', { inputmode: 'numeric', placeholder: 'reps', value: set.reps || '',
+            oninput: e => { set.reps = e.target.value; } }),
+          h('span', {}, '×'),
+          h('input', { inputmode: 'decimal', placeholder: 'kg', value: set.weight || '',
+            oninput: e => { set.weight = e.target.value; } }),
+          h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Retirer la série',
+            onclick: () => { ex.sets.splice(j, 1); drawEx(); } }, icon('x')))),
+        h('button', { class: 'link', type: 'button', onclick: () => {
+          const last = ex.sets?.at(-1) || { reps: '', weight: '' };
+          (ex.sets ||= []).push({ ...last }); drawEx();
+        } }, '+ Ajouter une série')
+      )));
     }
-
-    async function saveDay() {
-      const [firstEx] = d.exercises;
-      const fallbackName = firstEx ? firstEx.name : '';
-      const n = d.name.trim() || fallbackName;
-
-      d.name = n;
-
-      d.exercises.forEach((ex) =>
-        ex.sets.forEach((s) => {
-          s.reps = String(num(s.reps) || '');
-          s.weight = String(num(s.weight) || '');
-        })
-      );
-
-      try {
-        const nextDays = { ...getPlan().days };
-
-        if (!d.name) {
-          delete nextDays[String(day.idx)];
-        } else {
-          nextDays[String(day.idx)] = d;
-        }
-
-        await savePlan(nextDays);
-        await ensureExercisesInLibrary(d.exercises);
-
-        toast('Programme enregistré');
-
-        if (onSaved) onSaved();
-        close();
-      } catch (e) {
-        err.textContent = errMsg(e);
-      }
-    }
-
     drawEx();
-
     return h('div', {},
-      field('Nom de la séance', name),
+      h('p', { class: 'hint' }, 'Ajoute les exercices prévus pour ' + day.label.toLowerCase() + '. Laisse vide pour un jour de repos.'),
       h('h3', { class: 'sec' }, 'Exercices prévus'),
       exBox,
-      h('h3', { class: 'sec' }, 'Ajouter depuis mes exercices'),
+      h('h3', { class: 'sec' }, 'Ajouter un exercice'),
       picker,
       err,
       h('div', { class: 'btnrow' },
-        existing && h('button', {
-          class: 'btn danger',
-          type: 'button',
-          onclick: async () => {
-            try {
-              const nextDays = { ...getPlan().days };
-              delete nextDays[String(day.idx)];
-
-              await savePlan(nextDays);
-              toast('Jour mis en repos');
-
-              if (onSaved) onSaved();
-              close();
-            } catch (e) {
-              toast(errMsg(e));
-            }
-          },
-        }, 'Jour de repos'),
-        h('button', {
-          class: 'btn primary',
-          type: 'button',
-          onclick: saveDay,
-        }, 'Enregistrer')
+        h('button', { class: 'btn primary', onclick: () => {
+          if (exercises.length) {
+            draftDays[String(day.idx)] = { name: day.label, exercises };
+          } else {
+            delete draftDays[String(day.idx)];
+          }
+          onSaved();
+          close();
+        } }, 'Enregistrer ' + day.label)
       )
     );
   });
