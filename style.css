@@ -1314,3 +1314,26 @@ body.gesture-note-back:not(.gesture-dragging) #app{transition:transform var(--ge
   body.gesture-note-back:not(.gesture-dragging) #app,
   body.gesture-menu:not(.gesture-dragging) .drawer{transition-duration:.01ms!important}
 }
+
+/* La barre d'options est hors de #app pour rester collée au clavier iOS.
+   Pendant le retour interactif, la déplacer horizontalement avec la note,
+   sans toucher à sa position verticale calculée par visualViewport. */
+body.gesture-note-back .note-keyboard-toolbar,
+body.gesture-note-back .note-size-menu{
+  transform:translate3d(var(--gesture-x,0px),0,0);
+  will-change:transform;
+}
+body.gesture-note-back.gesture-dragging .note-keyboard-toolbar,
+body.gesture-note-back.gesture-dragging .note-size-menu{
+  transition:none!important;
+}
+body.gesture-note-back:not(.gesture-dragging) .note-keyboard-toolbar,
+body.gesture-note-back:not(.gesture-dragging) .note-size-menu{
+  transition:transform var(--gesture-duration,200ms) cubic-bezier(.22,1,.36,1)!important;
+}
+@media (prefers-reduced-motion:reduce){
+  body.gesture-note-back:not(.gesture-dragging) .note-keyboard-toolbar,
+  body.gesture-note-back:not(.gesture-dragging) .note-size-menu{
+    transition-duration:.01ms!important;
+  }
+}
