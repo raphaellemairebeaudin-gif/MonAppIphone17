@@ -60,7 +60,8 @@ let skipNoteBackAnimation = false;
 let gestureFinishTimer = null;
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const isNoteEditor = () => current === 'notes' &&
-  /^#\/notes\/(?:[0-9a-f]{8}-[0-9a-f-]{27,}|new~[^/]*)$/i.test(location.hash);
+  /^#\/notes\/(?!all(?:\/|$)|folder-)[^/]+$/i.test(location.hash) &&
+  !!ui?.ctx.main.classList.contains('note-editing-host');
 
 function clearGesture() {
   clearTimeout(gestureFinishTimer);
@@ -98,7 +99,11 @@ document.addEventListener('touchstart', e => {
   gestureFinishTimer = null;
   // Le geste horizontal peut commencer n'importe où sur l'écran.
   // Les zones à défilement horizontal conservent toutefois leur geste natif.
-  if (e.target.closest('input, textarea, select, [contenteditable="true"], .notes-icon-picker, .notes-color-picker, .notes-folder-tabs, .toolbar')) return;
+  // Dans l'éditeur, la surface de saisie couvre presque tout l'écran :
+  // elle doit donc permettre le retour par glissement horizontal.
+  // Le clavier et la barre d'outils restent indépendants de ce geste.
+  if (e.target.closest('.notes-icon-picker, .notes-color-picker, .notes-folder-tabs, .toolbar')) return;
+  if (!note && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
   gesture = { id: t.identifier, startX: t.clientX, startY: t.clientY,
     x: t.clientX, lastX: t.clientX, lastAt: performance.now(), velocity: 0,
     mode: menuOpen ? 'close' : note ? 'note' : 'open',
