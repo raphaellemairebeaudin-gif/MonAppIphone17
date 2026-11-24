@@ -720,7 +720,7 @@ function editor(ctx, id) {
     if (!toolbar.isConnected || document.hidden) return;
     const vp = window.visualViewport;
     const visibleBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
-    const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
+    const layoutHeight = Math.max(document.documentElement.clientHeight || 0, window.innerHeight);
     const keyboardOpen = layoutHeight - (vp?.height || window.innerHeight) > 100;
     if (toolbar.classList.contains('keyboard-visible') !== keyboardOpen) {
       toolbar.classList.toggle('keyboard-visible', keyboardOpen);
@@ -729,11 +729,12 @@ function editor(ctx, id) {
     if (!toolbarHeight) toolbarHeight = toolbar.offsetHeight;
     const height = vp?.height || window.innerHeight;
     const offset = vp?.offsetTop || 0;
-    if (height === lastViewportHeight && offset === lastViewportOffset && toolbar.style.top) return;
+    // Recalculer aussi après la fermeture du clavier, même si le viewport est inchangé.
     lastViewportHeight = height;
     lastViewportOffset = offset;
-    const toolbarMargin = keyboardOpen ? 0 : 25;
-    const top = Math.max(0, visibleBottom - toolbarHeight - toolbarMargin);
+    const toolbarMargin = keyboardOpen ? 0 : 15;
+    const closedBottom = Math.max(visibleBottom, layoutHeight);
+    const top = Math.max(0, (keyboardOpen ? visibleBottom : closedBottom) - toolbarHeight - toolbarMargin);
     const editorHeight = Math.max(0, height - toolbarHeight - toolbarMargin);
     document.body.style.setProperty('--note-editor-height', editorHeight + 'px');
     const nextTop = top + 'px';
