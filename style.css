@@ -1444,3 +1444,9 @@ body.note-editor-layout #app > .topbar{flex:none;position:relative;}
 body.note-editor-layout #app > .head{flex:none;}
 body.note-editor-layout .note-editing-host{flex:1 1 auto;min-height:0;width:100%;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding-bottom:24px;}
 body.note-editor-layout .rich-editor{min-height:40vh;}
+
+.note-size-choice[data-size="24"]{font-size:24px;}
+.note-size-choice[data-size="20"]{font-size:20px;}
+.note-size-choice[data-size="17"]{font-size:17px;}
+.note-size-choice[data-size="16"]{font-size:16px;}
+.note-size-choice{text-align:center;line-height:1.25;}
