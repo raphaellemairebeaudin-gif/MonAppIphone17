@@ -733,6 +733,8 @@ function editor(ctx, id) {
     lastViewportHeight = height;
     lastViewportOffset = offset;
     const top = Math.max(0, visibleBottom - toolbarHeight);
+    const editorHeight = Math.max(0, height - toolbarHeight);
+    document.body.style.setProperty('--note-editor-height', editorHeight + 'px');
     const nextTop = top + 'px';
     if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
     positionSizeMenu();
@@ -858,6 +860,7 @@ function editor(ctx, id) {
     }},icon('dots'))]);
   }
 
+  document.body.classList.add('note-editor-layout');
   ctx.main.classList.add('note-editing-host');
   ctx.main.append(titleIn, editable, status);
   // Le clavier et la barre restent dans le repère écran : le glissement
@@ -871,6 +874,8 @@ function editor(ctx, id) {
     sizeMenu.remove();
     toolbar.remove();
     ctx.main.classList.remove('note-editing-host');
+    document.body.classList.remove('note-editor-layout');
+    document.body.style.removeProperty('--note-editor-height');
     if (timer) flush();
     clearKeyboardRecovery();
     document.removeEventListener('visibilitychange', onResume);
