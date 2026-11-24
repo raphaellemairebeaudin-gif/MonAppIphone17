@@ -470,14 +470,14 @@ function workoutSheet(existing, opts = {}) {
       class: 'btn primary',
       type: 'button',
       onclick: save,
-    }, 'Enregistrer pour plus tard');
+    }, 'Enregistrer');
 
     const date = h('input', {
       type: 'date',
       value: d.date,
       oninput: () => {
         d.date = date.value;
-        saveBtn.textContent = 'Enregistrer pour plus tard';
+        saveBtn.textContent = 'Enregistrer';
       },
     });
 
@@ -579,7 +579,14 @@ function workoutSheet(existing, opts = {}) {
       d.name = n;
       d.date = date.value;
       delete d.planned;
-      if (!isCompleted({ data: d })) d.status = 'planned';
+      if (opts.startNow || opts.initialData) {
+        d.status = 'completed';
+        d.completedAt = new Date().toISOString();
+      } else if (!existing || !isCompleted(existing)) {
+        d.status = 'planned';
+      } else {
+        d.status = 'completed';
+      }
 
       d.exercises.forEach((ex) =>
         ex.sets.forEach((s) => {
@@ -631,22 +638,6 @@ function workoutSheet(existing, opts = {}) {
             }
           },
         }, 'Supprimer'),
-        (!existing || !isCompleted(existing)) && h('button', {
-          class: 'btn primary', type: 'button', onclick: async () => {
-            if (!d.name.trim()) { err.textContent = 'Donne un nom à l’entraînement.'; return; }
-            d.name = d.name.trim();
-            d.date = opts.startNow ? today() : date.value;
-            d.status = 'completed';
-            d.completedAt = new Date().toISOString();
-            try {
-              if (existing) await db.update(existing.id, d);
-              else await db.add('workout', d);
-              await ensureExercisesInLibrary(d.exercises);
-              close();
-              toast('Entraînement terminé et ajouté à l’historique');
-            } catch (e) { err.textContent = errMsg(e); }
-          }
-        }, 'Terminer l’entraînement'),
         saveBtn
       )
     );
