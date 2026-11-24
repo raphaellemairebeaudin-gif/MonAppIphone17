@@ -102,7 +102,7 @@ function noteSwipePreview() {
     onLeave() {},
     onSuspend() {}
   };
-  views.notes.render(previewCtx, 'all');
+  views.notes.render(previewCtx);
   document.body.append(preview);
 }
 document.addEventListener('touchstart', e => {
