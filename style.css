@@ -1465,3 +1465,8 @@ body.note-editor-layout .rich-editor{min-height:40vh;}
 /* Barre Notes sans panneau de fond ni ligne de séparation. */
 .toolbar{background:transparent;border-top:0;}
 .toolbar button{background:var(--bg);}
+
+/* Même surface plein écran dans les notes que dans les autres pages PWA. */
+@media (display-mode: standalone){
+  html:has(body.note-editor-layout),body.note-editor-layout{height:100lvh;min-height:100lvh;}
+}
