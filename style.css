@@ -229,8 +229,8 @@ main {
 
 .fab {
   position: fixed;
-  right: calc(14px + env(safe-area-inset-right, 0px));
-  bottom: max(0px, calc(env(safe-area-inset-bottom, 0px) - 12px));
+  right: calc(20px + env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   width: 56px;
   height: 56px;
   border: 0;
