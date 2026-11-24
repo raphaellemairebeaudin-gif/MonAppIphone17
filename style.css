@@ -1461,3 +1461,7 @@ body.note-editor-layout .rich-editor{min-height:40vh;}
   body:not(.note-editor-layout) #app{height:100lvh;}
   #launch-screen{height:100lvh;bottom:auto;}
 }
+
+/* Barre Notes sans panneau de fond ni ligne de séparation. */
+.toolbar{background:transparent;border-top:0;}
+.toolbar button{background:var(--bg);}
