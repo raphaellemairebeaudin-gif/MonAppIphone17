@@ -188,10 +188,26 @@ function finishGesture(cancelled = false) {
       document.documentElement.style.setProperty('--gesture-x', window.innerWidth + 'px');
       const noteHash = location.hash;
       gestureFinishTimer = setTimeout(() => {
+        if (location.hash !== noteHash || !isNoteEditor()) {
+          clearGesture();
+          return;
+        }
+        // Garder la vraie vue Notes visible pendant le remplacement de
+        // l'éditeur, puis la fondre sur la page finale sans saut visuel.
+        const preview = document.getElementById('notes-swipe-preview');
+        if (preview) {
+          preview.id = 'notes-swipe-handoff';
+          preview.classList.add('notes-swipe-handoff');
+        }
         clearGesture();
-        if (location.hash !== noteHash || !isNoteEditor()) return;
         skipNoteBackAnimation = true;
         location.hash = '#/notes';
+        if (preview) {
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            preview.classList.add('notes-swipe-handoff-done');
+          }));
+          setTimeout(() => preview.remove(), 240);
+        }
       }, duration);
     } else {
       document.documentElement.style.setProperty('--gesture-x', '0px');
