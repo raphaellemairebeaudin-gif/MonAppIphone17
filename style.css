@@ -1412,3 +1412,19 @@ body.gesture-note-back:not(.gesture-dragging) .note-size-menu{
   margin:0 auto;
   padding:0 20px calc(120px + env(safe-area-inset-bottom));
 }
+
+/* Déplacement sur une couche compositée, sans recalcul de la position top
+   à chaque image. Le déplacement horizontal du retour reste indépendant. */
+.toolbar{
+  top:0;
+  transform:translate3d(var(--note-toolbar-x,0px),var(--note-toolbar-y,calc(100dvh - 54px - env(safe-area-inset-bottom,0px))),0);
+  will-change:transform;
+  backface-visibility:hidden;
+  transition:none;
+}
+body.gesture-note-back .toolbar{
+  --note-toolbar-x:var(--gesture-x,0px);
+}
+body.gesture-note-back:not(.gesture-dragging) .toolbar{
+  transition:transform var(--gesture-duration,200ms) cubic-bezier(.22,1,.36,1);
+}
