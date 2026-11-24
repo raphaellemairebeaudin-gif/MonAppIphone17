@@ -215,7 +215,7 @@ function editor(ctx, id) {
           if (checked) child.setAttribute('checked', '');
           continue;
         }
-        const safeTextSize = child.tagName === 'SPAN' && ['16', '17', '20', '24'].includes(child.dataset.textSize) ? child.dataset.textSize : '';
+        const safeTextSize = child.tagName === 'SPAN' && ['12', '16', '17', '20', '24', '30'].includes(child.dataset.textSize) ? child.dataset.textSize : '';
         const safeClass = child.tagName === 'UL' && child.classList.contains('check-list') ? 'check-list' : child.tagName === 'LI' && child.classList.contains('check-item') ? 'check-item' : child.tagName === 'LABEL' && child.classList.contains('md-todo') ? 'md-todo' : '';
         for (const attr of [...child.attributes]) child.removeAttribute(attr.name);
         if (safeClass) child.className = safeClass;
@@ -531,10 +531,10 @@ function editor(ctx, id) {
   };
   const sizeMenu = h('div', { class: 'note-size-menu', hidden: true });
   const sizeChoices = [
-    ['h2', 'Grand', '24 px'],
-    ['h3', 'Moyen', '20 px'],
-    ['h4', 'Petit titre', '17 px'],
-    ['div', 'Normal', '16 px'],
+    ['h2', 'Titre', '30 px'],
+    ['h3', 'Sous-titre', '24 px'],
+    ['div', 'Texte normal', '16 px'],
+    ['h4', 'Petit texte', '12 px'],
   ];
   const closeSizeMenu = () => { sizeMenu.hidden = true; };
   const selectionTextSizes = (selection = window.getSelection()) => {
@@ -558,7 +558,7 @@ function editor(ctx, id) {
       selection.removeAllRanges();
       selection.addRange(savedRange);
     }
-    const chosenSize = { h2: '24', h3: '20', h4: '17', div: '16' }[tag];
+    const chosenSize = { h2: '30', h3: '24', h4: '12', div: '16' }[tag];
     const selection = window.getSelection();
     if (selection?.rangeCount && !selection.isCollapsed && editable.contains(selection.anchorNode)) {
       const range = selection.getRangeAt(0);
@@ -607,7 +607,7 @@ function editor(ctx, id) {
   });
   sizeMenu.append(...sizeChoices.map(([tag, label, size]) =>
     h('button', {
-      type: 'button', class: 'note-size-choice', 'aria-label': label + ' · ' + size, 'data-size': ({h2:'24',h3:'20',h4:'17',div:'16'})[tag],
+      type: 'button', class: 'note-size-choice', 'aria-label': label + ' · ' + size, 'data-size': ({h2:'30',h3:'24',h4:'12',div:'16'})[tag],
       onpointerdown: (e) => { rememberSelection(); e.preventDefault(); },
       onmousedown: (e) => e.preventDefault(),
       onclick: () => applyTextSize(tag),
