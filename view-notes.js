@@ -733,12 +733,16 @@ function editor(ctx, id) {
     lastViewportHeight = height;
     lastViewportOffset = offset;
     const toolbarMargin = keyboardOpen ? 0 : 15;
-    const closedBottom = Math.max(visibleBottom, layoutHeight);
-    const top = Math.max(0, (keyboardOpen ? visibleBottom : closedBottom) - toolbarHeight - toolbarMargin);
+    const top = Math.max(0, visibleBottom - toolbarHeight - toolbarMargin);
     const editorHeight = Math.max(0, height - toolbarHeight - toolbarMargin);
     document.body.style.setProperty('--note-editor-height', editorHeight + 'px');
-    const nextTop = top + 'px';
-    if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
+    if (keyboardOpen) {
+      toolbar.style.bottom = 'auto';
+      toolbar.style.top = top + 'px';
+    } else {
+      toolbar.style.top = 'auto';
+      toolbar.style.bottom = '15px';
+    }
     positionSizeMenu();
   };
   const clearKeyboardRecovery = () => {
