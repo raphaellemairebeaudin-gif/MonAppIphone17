@@ -734,7 +734,10 @@ function editor(ctx, id) {
     lastViewportOffset = offset;
     const top = Math.max(0, visibleBottom - toolbarHeight);
     const editorHeight = Math.max(0, height - toolbarHeight);
-    document.body.style.setProperty('--note-editor-height', editorHeight + 'px');
+    const editorSize = editorHeight + 'px';
+    if (document.body.style.getPropertyValue('--note-editor-height') !== editorSize) {
+      document.body.style.setProperty('--note-editor-height', editorSize);
+    }
     const nextTop = top + 'px';
     if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
     positionSizeMenu();
@@ -751,9 +754,7 @@ function editor(ctx, id) {
   const followKeyboard = () => {
     if (document.hidden || !toolbar.isConnected) return;
     trackingUntil = performance.now() + 450;
-    // Ne pas annuler la boucle à chaque événement resize : cela retardait
-    // le placement pendant les animations et le défilement du clavier.
-    positionToolbar();
+    // Regrouper les événements rapides dans une seule mise à jour par image.
     if (!tracking) {
       tracking = true;
       const tick = now => {
