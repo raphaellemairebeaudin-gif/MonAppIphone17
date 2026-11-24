@@ -714,13 +714,15 @@ function editor(ctx, id) {
   let trackingUntil = 0;
   let tracking = false;
   let toolbarHeight = 0;
+  const screenHeightProbe = h('div', { 'aria-hidden': 'true', style: 'position:fixed;top:0;left:0;width:0;height:100lvh;visibility:hidden;pointer-events:none;' });
+  document.body.append(screenHeightProbe);
   let lastViewportHeight = -1;
   let lastViewportOffset = 0;
   const positionToolbar = () => {
     if (!toolbar.isConnected || document.hidden) return;
     const vp = window.visualViewport;
     const visibleBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
-    const layoutHeight = Math.max(document.documentElement.clientHeight || 0, window.innerHeight);
+    const layoutHeight = screenHeightProbe.offsetHeight || document.documentElement.clientHeight || window.innerHeight;
     const keyboardOpen = layoutHeight - (vp?.height || window.innerHeight) > 100;
     if (toolbar.classList.contains('keyboard-visible') !== keyboardOpen) {
       toolbar.classList.toggle('keyboard-visible', keyboardOpen);
@@ -732,17 +734,13 @@ function editor(ctx, id) {
     // Recalculer aussi après la fermeture du clavier, même si le viewport est inchangé.
     lastViewportHeight = height;
     lastViewportOffset = offset;
-    const toolbarMargin = keyboardOpen ? 0 : 15;
-    const top = Math.max(0, visibleBottom - toolbarHeight - toolbarMargin);
-    const editorHeight = Math.max(0, height - toolbarHeight - toolbarMargin);
+    const toolbarMargin = keyboardOpen ? 0 : 25;
+    const top = Math.max(0, (keyboardOpen ? visibleBottom : layoutHeight) - toolbarHeight - toolbarMargin);
+    const editorHeight = Math.max(0, (keyboardOpen ? height : layoutHeight) - toolbarHeight - toolbarMargin);
     document.body.style.setProperty('--note-editor-height', editorHeight + 'px');
-    if (keyboardOpen) {
-      toolbar.style.bottom = 'auto';
-      toolbar.style.top = top + 'px';
-    } else {
-      toolbar.style.top = 'auto';
-      toolbar.style.bottom = '15px';
-    }
+    toolbar.style.bottom = 'auto';
+    const nextTop = top + 'px';
+    if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
     positionSizeMenu();
   };
   const clearKeyboardRecovery = () => {
@@ -879,6 +877,7 @@ function editor(ctx, id) {
     closeSizeMenu();
     sizeMenu.remove();
     toolbar.remove();
+    screenHeightProbe.remove();
     ctx.main.classList.remove('note-editing-host');
     document.body.classList.remove('note-editor-layout');
     document.body.style.removeProperty('--note-editor-height');
