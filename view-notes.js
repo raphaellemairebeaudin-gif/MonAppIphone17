@@ -713,13 +713,26 @@ function editor(ctx, id) {
   let lastKeyboardGeometry = '';
   let trackingUntil = 0;
   let tracking = false;
+  let toolbarHeight = 0;
+  let lastViewportHeight = -1;
+  let lastViewportOffset = 0;
   const positionToolbar = () => {
     if (!toolbar.isConnected || document.hidden) return;
     const vp = window.visualViewport;
     const visibleBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
     const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
-    toolbar.classList.toggle('keyboard-visible', layoutHeight - visibleBottom > 100);
-    const top = Math.max(0, visibleBottom - toolbar.offsetHeight);
+    const keyboardOpen = layoutHeight - (vp?.height || window.innerHeight) > 100;
+    if (toolbar.classList.contains('keyboard-visible') !== keyboardOpen) {
+      toolbar.classList.toggle('keyboard-visible', keyboardOpen);
+      toolbarHeight = 0;
+    }
+    if (!toolbarHeight) toolbarHeight = toolbar.offsetHeight;
+    const height = vp?.height || window.innerHeight;
+    const offset = vp?.offsetTop || 0;
+    if (height === lastViewportHeight && offset === lastViewportOffset) return;
+    lastViewportHeight = height;
+    lastViewportOffset = offset;
+    const top = Math.max(0, visibleBottom - toolbarHeight);
     const nextTop = top + 'px';
     if (toolbar.style.getPropertyValue('--note-toolbar-y') !== nextTop) {
       toolbar.style.setProperty('--note-toolbar-y', nextTop);
@@ -737,7 +750,7 @@ function editor(ctx, id) {
   };
   const followKeyboard = () => {
     if (document.hidden || !toolbar.isConnected) return;
-    trackingUntil = performance.now() + 900;
+    trackingUntil = performance.now() + 450;
     // Ne pas annuler la boucle à chaque événement resize : cela retardait
     // le placement pendant les animations et le défilement du clavier.
     positionToolbar();
@@ -774,6 +787,8 @@ function editor(ctx, id) {
     if (!toolbar.isConnected) document.body.append(toolbar);
     if (!sizeMenu.isConnected) document.body.append(sizeMenu);
     lastKeyboardGeometry = '';
+    lastViewportHeight = -1;
+    toolbarHeight = 0;
     followKeyboard();
     keyboardRecoveryTimers.forEach(clearTimeout);
     keyboardRecoveryTimers = [150, 400, 800, 1400, 2400, 3500].map(delay => setTimeout(followKeyboard, delay));
@@ -783,9 +798,9 @@ function editor(ctx, id) {
   window.addEventListener('focus', onResume);
   window.addEventListener('orientationchange', followKeyboard);
   window.visualViewport?.addEventListener('resize', followKeyboard);
-  window.visualViewport?.addEventListener('scroll', followKeyboard);
+  window.visualViewport?.addEventListener('scroll', positionToolbar, { passive: true });
   window.addEventListener('resize', followKeyboard);
-  document.addEventListener('scroll', followKeyboard, { capture: true, passive: true });
+  // Le scroll interne de la note ne change pas la géométrie du clavier.
   toolbar.addEventListener('scroll', positionSizeMenu, { passive: true });
   editable.addEventListener('focus', followKeyboard);
   editable.addEventListener('blur', followKeyboard);
@@ -864,10 +879,10 @@ function editor(ctx, id) {
     window.removeEventListener('pageshow', onResume);
     window.removeEventListener('focus', onResume);
     window.visualViewport?.removeEventListener('resize', followKeyboard);
-    window.visualViewport?.removeEventListener('scroll', followKeyboard);
+    window.visualViewport?.removeEventListener('scroll', positionToolbar);
     window.removeEventListener('resize', followKeyboard);
     window.removeEventListener('orientationchange', followKeyboard);
-    document.removeEventListener('scroll', followKeyboard, true);
+
     document.removeEventListener('selectionchange', updateToolStates);
     document.removeEventListener('selectionchange', rememberSelection);
   });
