@@ -719,7 +719,7 @@ function editor(ctx, id) {
   const positionToolbar = () => {
     if (!toolbar.isConnected || document.hidden) return;
     const vp = window.visualViewport;
-    const visibleBottom = vp ? vp.height : window.innerHeight;
+    const visibleBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
     const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
     const keyboardOpen = layoutHeight - (vp?.height || window.innerHeight) > 100;
     if (toolbar.classList.contains('keyboard-visible') !== keyboardOpen) {
@@ -728,11 +728,12 @@ function editor(ctx, id) {
     }
     if (!toolbarHeight) toolbarHeight = toolbar.offsetHeight;
     const height = vp?.height || window.innerHeight;
-    const offset = 0;
+    const offset = vp?.offsetTop || 0;
     if (height === lastViewportHeight && offset === lastViewportOffset) return;
     lastViewportHeight = height;
     lastViewportOffset = offset;
-    const top = Math.max(0, visibleBottom - toolbarHeight);
+    const bodyTop = document.body.getBoundingClientRect().top;
+    const top = Math.max(0, visibleBottom - bodyTop - toolbarHeight);
     const nextTop = top + 'px';
     if (toolbar.style.getPropertyValue('--note-toolbar-y') !== nextTop) {
       toolbar.style.setProperty('--note-toolbar-y', nextTop);
@@ -768,7 +769,7 @@ function editor(ctx, id) {
       keyboardPoll = setInterval(() => {
         if (document.hidden || !toolbar.isConnected) return;
         const vp = window.visualViewport;
-        const geometry = [vp?.height, window.innerHeight,
+        const geometry = [vp?.height, vp?.offsetTop, window.innerHeight,
           document.documentElement.clientHeight].join(':');
         if (geometry !== lastKeyboardGeometry) {
           lastKeyboardGeometry = geometry;
@@ -798,7 +799,7 @@ function editor(ctx, id) {
   window.addEventListener('focus', onResume);
   window.addEventListener('orientationchange', followKeyboard);
   window.visualViewport?.addEventListener('resize', followKeyboard);
-  // Le déplacement du viewport pendant le scroll ne doit pas déplacer la barre.
+  window.visualViewport?.addEventListener('scroll', followKeyboard, { passive: true });
   window.addEventListener('resize', followKeyboard);
   // Le scroll interne de la note ne change pas la géométrie du clavier.
   toolbar.addEventListener('scroll', positionSizeMenu, { passive: true });
@@ -879,6 +880,7 @@ function editor(ctx, id) {
     window.removeEventListener('pageshow', onResume);
     window.removeEventListener('focus', onResume);
     window.visualViewport?.removeEventListener('resize', followKeyboard);
+    window.visualViewport?.removeEventListener('scroll', followKeyboard);
 
     window.removeEventListener('resize', followKeyboard);
     window.removeEventListener('orientationchange', followKeyboard);
