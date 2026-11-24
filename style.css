@@ -1453,3 +1453,6 @@ body.note-editor-layout .rich-editor{min-height:40vh;}
 
 .rich-editor span[data-text-size="30"],.note-size-choice[data-size="30"]{font-size:30px;}
 .rich-editor span[data-text-size="12"],.note-size-choice[data-size="12"]{font-size:12px;}
+
+/* Étendre les pages ordinaires jusqu'au bord inférieur du viewport iOS. */
+body:not(.note-editor-layout) #app{height:100dvh;min-height:100%;}
