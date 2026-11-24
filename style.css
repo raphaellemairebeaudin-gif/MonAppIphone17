@@ -1450,3 +1450,6 @@ body.note-editor-layout .rich-editor{min-height:40vh;}
 .note-size-choice[data-size="17"]{font-size:17px;}
 .note-size-choice[data-size="16"]{font-size:16px;}
 .note-size-choice{text-align:center;line-height:1.25;}
+
+.rich-editor span[data-text-size="30"],.note-size-choice[data-size="30"]{font-size:30px;}
+.rich-editor span[data-text-size="12"],.note-size-choice[data-size="12"]{font-size:12px;}
