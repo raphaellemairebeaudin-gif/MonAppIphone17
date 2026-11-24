@@ -33,6 +33,18 @@ function addMenu() {
   ));
 }
 
+const isCompleted = w => w.data.status === 'completed' || (!w.data.status && (w.data.date || '') <= today());
+const isPending = w => w.data.status === 'planned' || (!w.data.status && (w.data.date || '') > today());
+let cleaningExpired = false;
+async function cleanupExpired() {
+  if (cleaningExpired) return;
+  const expired = db.all('workout').filter(w => w.data.status === 'planned' && w.data.date < today());
+  if (!expired.length) return;
+  cleaningExpired = true;
+  try { for (const w of expired) await db.remove(w.id); }
+  catch (e) { console.warn('Nettoyage des séances expirées impossible', e); }
+  finally { cleaningExpired = false; }
+}
 export function render(ctx) {
   ctx.setHead(meta.label, longDate());
 
@@ -52,20 +64,10 @@ export function render(ctx) {
 
       const allWorkouts = db.all('workout');
 
-      const upcoming = allWorkouts
-        .filter((w) => (w.data.date || '') > now)
-        .sort((a, b) =>
-          (a.data.date || '').localeCompare(b.data.date || '') ||
-          (a.created_at || '').localeCompare(b.created_at || '')
-        );
-
-      const historyList = allWorkouts
-        .filter((w) => (w.data.date || '') <= now)
-        .sort((a, b) =>
-          (b.data.date || '').localeCompare(a.data.date || '') ||
-          (b.created_at || '').localeCompare(a.created_at || '')
-        );
-
+      const upcoming = allWorkouts.filter(w => isPending(w) && w.data.date >= now)
+        .sort((a,b) => a.data.date.localeCompare(b.data.date));
+      const historyList = allWorkouts.filter(isCompleted)
+        .sort((a,b) => (b.data.date || '').localeCompare(a.data.date || ''));
       const sections = [];
 
       if (activePlan) {
@@ -122,30 +124,17 @@ export function render(ctx) {
       }
 
       if (upcoming.length) {
-        sections.push(
-          h('div', {},
-            h('h3', { class: 'sec' }, 'À venir'),
-            upcoming.map((w) => {
-              const exs = w.data.exercises || [];
-
-              const startBtn = h('button', {
-                class: 'pill',
-                type: 'button',
-                onclick: (e) => {
-                  e.stopPropagation();
-                  workoutSheet(w, { startNow: true });
-                },
-              }, 'Démarrer');
-
-              return row(
-                w.data.name || 'Sans titre',
-                `${fmtDate(w.data.date)} · ${plur(exs.length, 'exercice')}`,
-                startBtn,
-                () => workoutSheet(w)
-              );
-            })
-          )
-        );
+        sections.unshift(h('div', {},
+          h('h3', { class: 'sec' }, 'Entraînements à faire'),
+          upcoming.map(w => row(
+            w.data.name || 'Sans titre',
+            fmtDate(w.data.date) + ' · ' + plur((w.data.exercises || []).length, 'exercice'),
+            h('button', { class: 'pill', type: 'button',
+              onclick: e => { e.stopPropagation(); workoutSheet(w, { startNow: true }); }
+            }, 'Démarrer'),
+            () => workoutSheet(w)
+          ))
+        ));
       }
 
       if (historyList.length) {
@@ -168,11 +157,11 @@ export function render(ctx) {
             })
           )
         );
-      } else if (!upcoming.length) {
+      } else if (!upcoming.length && !activePlan) {
         sections.push(
           empty(
             'Aucun entraînement',
-            'Touche + pour enregistrer une séance ou choisis une date future pour la prévoir.'
+            'Touche + pour préparer un entraînement. Il ira dans l’historique une fois terminé.'
           )
         );
       }
@@ -191,6 +180,7 @@ export function render(ctx) {
 
   ctx.onData(draw);
   draw();
+  cleanupExpired();
 }
 
 function startFromTemplate(routine) {
@@ -219,7 +209,7 @@ function lastPerformance(name) {
   const now = today();
 
   const ws = db.all('workout')
-    .filter((w) => (w.data.date || '') <= now)
+    .filter((w) => isCompleted(w) && (w.data.date || '') <= now)
     .sort((a, b) =>
       (b.data.date || '').localeCompare(a.data.date || '')
     );
@@ -250,7 +240,7 @@ function lastExerciseSets(name) {
   const now = today();
 
   const ws = db.all('workout')
-    .filter((w) => (w.data.date || '') <= now)
+    .filter((w) => isCompleted(w) && (w.data.date || '') <= now)
     .sort((a, b) =>
       (b.data.date || '').localeCompare(a.data.date || '')
     );
@@ -457,6 +447,7 @@ function workoutSheet(existing, opts = {}) {
   }
 
   d.exercises = d.exercises || [];
+  if (!existing) d.status = 'planned';
 
   const title = opts.startNow
     ? 'Démarrer la séance'
@@ -479,16 +470,14 @@ function workoutSheet(existing, opts = {}) {
       class: 'btn primary',
       type: 'button',
       onclick: save,
-    }, (d.date || now) > today() ? 'Planifier' : 'Enregistrer');
+    }, 'Enregistrer pour plus tard');
 
     const date = h('input', {
       type: 'date',
       value: d.date,
       oninput: () => {
         d.date = date.value;
-        saveBtn.textContent = d.date > today()
-          ? 'Planifier'
-          : 'Enregistrer';
+        saveBtn.textContent = 'Enregistrer pour plus tard';
       },
     });
 
@@ -590,6 +579,7 @@ function workoutSheet(existing, opts = {}) {
       d.name = n;
       d.date = date.value;
       delete d.planned;
+      if (!isCompleted({ data: d })) d.status = 'planned';
 
       d.exercises.forEach((ex) =>
         ex.sets.forEach((s) => {
@@ -598,6 +588,10 @@ function workoutSheet(existing, opts = {}) {
         })
       );
 
+      if (d.status === 'planned' && d.date < today()) {
+        err.textContent = 'Choisis aujourd’hui ou une date future.';
+        return;
+      }
       try {
         if (existing) {
           await db.update(existing.id, d);
@@ -637,6 +631,22 @@ function workoutSheet(existing, opts = {}) {
             }
           },
         }, 'Supprimer'),
+        (!existing || !isCompleted(existing)) && h('button', {
+          class: 'btn primary', type: 'button', onclick: async () => {
+            if (!d.name.trim()) { err.textContent = 'Donne un nom à l’entraînement.'; return; }
+            d.name = d.name.trim();
+            d.date = opts.startNow ? today() : date.value;
+            d.status = 'completed';
+            d.completedAt = new Date().toISOString();
+            try {
+              if (existing) await db.update(existing.id, d);
+              else await db.add('workout', d);
+              await ensureExercisesInLibrary(d.exercises);
+              close();
+              toast('Entraînement terminé et ajouté à l’historique');
+            } catch (e) { err.textContent = errMsg(e); }
+          }
+        }, 'Terminer l’entraînement'),
         saveBtn
       )
     );
