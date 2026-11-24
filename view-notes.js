@@ -607,11 +607,11 @@ function editor(ctx, id) {
   });
   sizeMenu.append(...sizeChoices.map(([tag, label, size]) =>
     h('button', {
-      type: 'button', class: 'note-size-choice', 'data-size': ({h2:'24',h3:'20',h4:'17',div:'16'})[tag],
+      type: 'button', class: 'note-size-choice', 'aria-label': label + ' · ' + size, 'data-size': ({h2:'24',h3:'20',h4:'17',div:'16'})[tag],
       onpointerdown: (e) => { rememberSelection(); e.preventDefault(); },
       onmousedown: (e) => e.preventDefault(),
       onclick: () => applyTextSize(tag),
-    }, label + ' · ' + size)));
+    }, 'TEXT')));
   const positionSizeMenu = () => {
     if (sizeMenu.hidden || !toolbar.isConnected) return;
     const headingButton = toolButtons.get('heading');
