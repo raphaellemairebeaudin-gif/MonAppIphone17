@@ -711,54 +711,56 @@ function editor(ctx, id) {
   let keyboardRecoveryTimers = [];
   let keyboardPoll = 0;
   let lastKeyboardGeometry = '';
+  let trackingUntil = 0;
+  let tracking = false;
   const positionToolbar = () => {
     if (!toolbar.isConnected || document.hidden) return;
     const vp = window.visualViewport;
-    const viewportBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
-    // Les coordonnées du body fixe sont utilisées pour éviter le décalage
-    // entre layout viewport et visual viewport après une reprise iOS.
-    const visibleBottom = viewportBottom;
+    const visibleBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
     const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
-    const keyboardOpen = layoutHeight - viewportBottom > 100;
-    toolbar.classList.toggle('keyboard-visible', keyboardOpen);
+    toolbar.classList.toggle('keyboard-visible', layoutHeight - visibleBottom > 100);
     const top = Math.max(0, visibleBottom - toolbar.offsetHeight);
-    const nextTop = Math.round(top) + 'px';
+    const nextTop = top + 'px';
     if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
     positionSizeMenu();
   };
   const clearKeyboardRecovery = () => {
     cancelAnimationFrame(keyboardFrame);
+    tracking = false;
+    trackingUntil = 0;
     clearInterval(keyboardPoll);
     keyboardRecoveryTimers.forEach(clearTimeout);
     keyboardRecoveryTimers = [];
     keyboardPoll = 0;
   };
   const followKeyboard = () => {
-    clearKeyboardRecovery();
-    let frames = 0;
-    const tick = () => {
-      if (!toolbar.isConnected || document.hidden) return;
-      positionToolbar();
-      if (++frames < 120) keyboardFrame = requestAnimationFrame(tick);
-    };
-    keyboardFrame = requestAnimationFrame(tick);
-    // iOS peut restaurer la géométrie du clavier plusieurs secondes après
-    // visibilitychange, sans émettre resize/scroll.
-    for (const delay of [150, 400, 800, 1400, 2400, 3500]) {
-      keyboardRecoveryTimers.push(setTimeout(positionToolbar, delay));
-    }
-    // Filet de sécurité léger : surveiller les changements de géométrie
-    // même lorsque WebKit n'envoie plus d'événements au retour.
-    keyboardPoll = setInterval(() => {
-      if (document.hidden || !toolbar.isConnected) return;
-      const vp = window.visualViewport;
-      const geometry = [vp?.height, vp?.offsetTop, window.innerHeight,
-        document.documentElement.clientHeight].join(':');
-      if (geometry !== lastKeyboardGeometry) {
-        lastKeyboardGeometry = geometry;
+    if (document.hidden || !toolbar.isConnected) return;
+    trackingUntil = performance.now() + 900;
+    // Ne pas annuler la boucle à chaque événement resize : cela retardait
+    // le placement pendant les animations et le défilement du clavier.
+    positionToolbar();
+    if (!tracking) {
+      tracking = true;
+      const tick = now => {
+        if (!toolbar.isConnected || document.hidden) { tracking = false; return; }
         positionToolbar();
-      }
-    }, 250);
+        if (now < trackingUntil) keyboardFrame = requestAnimationFrame(tick);
+        else tracking = false;
+      };
+      keyboardFrame = requestAnimationFrame(tick);
+    }
+    if (!keyboardPoll) {
+      keyboardPoll = setInterval(() => {
+        if (document.hidden || !toolbar.isConnected) return;
+        const vp = window.visualViewport;
+        const geometry = [vp?.height, vp?.offsetTop, window.innerHeight,
+          document.documentElement.clientHeight].join(':');
+        if (geometry !== lastKeyboardGeometry) {
+          lastKeyboardGeometry = geometry;
+          followKeyboard();
+        }
+      }, 100);
+    }
   };
   const onResume = () => {
     if (document.hidden) {
@@ -771,6 +773,8 @@ function editor(ctx, id) {
     if (!sizeMenu.isConnected) document.body.append(sizeMenu);
     lastKeyboardGeometry = '';
     followKeyboard();
+    keyboardRecoveryTimers.forEach(clearTimeout);
+    keyboardRecoveryTimers = [150, 400, 800, 1400, 2400, 3500].map(delay => setTimeout(followKeyboard, delay));
   };
   document.addEventListener('visibilitychange', onResume);
   window.addEventListener('pageshow', onResume);
