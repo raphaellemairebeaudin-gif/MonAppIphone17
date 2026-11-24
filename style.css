@@ -1455,6 +1455,9 @@ body.note-editor-layout .rich-editor{min-height:40vh;}
 .rich-editor span[data-text-size="12"],.note-size-choice[data-size="12"]{font-size:12px;}
 
 /* Étendre les pages ordinaires jusqu'au bord inférieur du viewport iOS. */
-body:not(.note-editor-layout) #app{height:calc(100dvh + env(safe-area-inset-bottom,0px));min-height:100%;}
-body:not(.note-editor-layout){overflow:visible;}
-html:has(body:not(.note-editor-layout)){overflow:visible;}
+/* Utiliser le grand viewport autonome, y compris au démarrage. */
+@media (display-mode: standalone){
+  html:has(body:not(.note-editor-layout)),body:not(.note-editor-layout){height:100lvh;min-height:100lvh;}
+  body:not(.note-editor-layout) #app{height:100lvh;}
+  #launch-screen{height:100lvh;bottom:auto;}
+}
