@@ -729,15 +729,12 @@ function editor(ctx, id) {
     if (!toolbarHeight) toolbarHeight = toolbar.offsetHeight;
     const height = vp?.height || window.innerHeight;
     const offset = vp?.offsetTop || 0;
-    if (height === lastViewportHeight && offset === lastViewportOffset) return;
+    if (height === lastViewportHeight && offset === lastViewportOffset && toolbar.style.top) return;
     lastViewportHeight = height;
     lastViewportOffset = offset;
-    const bodyTop = document.body.getBoundingClientRect().top;
-    const top = Math.max(0, visibleBottom - bodyTop - toolbarHeight);
+    const top = Math.max(0, visibleBottom - toolbarHeight);
     const nextTop = top + 'px';
-    if (toolbar.style.getPropertyValue('--note-toolbar-y') !== nextTop) {
-      toolbar.style.setProperty('--note-toolbar-y', nextTop);
-    }
+    if (toolbar.style.top !== nextTop) toolbar.style.top = nextTop;
     positionSizeMenu();
   };
   const clearKeyboardRecovery = () => {
