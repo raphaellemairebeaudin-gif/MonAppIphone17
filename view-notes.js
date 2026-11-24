@@ -732,7 +732,7 @@ function editor(ctx, id) {
     if (height === lastViewportHeight && offset === lastViewportOffset && toolbar.style.top) return;
     lastViewportHeight = height;
     lastViewportOffset = offset;
-    const toolbarMargin = keyboardOpen ? 0 : 15;
+    const toolbarMargin = keyboardOpen ? 0 : 25;
     const top = Math.max(0, visibleBottom - toolbarHeight - toolbarMargin);
     const editorHeight = Math.max(0, height - toolbarHeight - toolbarMargin);
     document.body.style.setProperty('--note-editor-height', editorHeight + 'px');
