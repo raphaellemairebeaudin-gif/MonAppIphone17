@@ -1470,29 +1470,3 @@ body.note-editor-layout .rich-editor{min-height:40vh;}
 @media (display-mode: standalone){
   html:has(body.note-editor-layout),body.note-editor-layout{height:100lvh;min-height:100lvh;}
 }
-
-.train-catalog{max-height:48dvh;overflow:auto;overscroll-behavior:contain;}
-.train-catalog-row{gap:10px;min-height:72px;}
-.train-muscle-img{width:48px;height:64px;object-fit:contain;background:#262928;border-radius:8px;flex-shrink:0;}
-.train-info-link{border:0;background:transparent;text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0;padding:4px 0;overflow-wrap:anywhere;}
-.train-info-hero{display:flex;justify-content:center;padding:12px;background:var(--card);border-radius:12px;}
-.train-info-hero .train-muscle-img{width:120px;height:176px;}
-.train-timer{margin-top:16px;}
-.train-timer-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.train-clock{font-size:26px;font-variant-numeric:tabular-nums;}
-.train-set-kind{border:0;background:var(--card);border-radius:6px;padding:5px;}
-.exblock .setrow:has(button[aria-label="Valider la série"]){display:grid;grid-template-columns:26px minmax(0,1fr) 12px minmax(0,1fr) 30px 30px;gap:4px;align-items:center;}
-.exblock .setrow input{min-width:0;width:100%;}
-.exblock .exhead{gap:4px;}
-
-.train-page{position:fixed;inset:0;z-index:70;height:100lvh;display:flex;flex-direction:column;background:var(--bg);color:var(--text);box-sizing:border-box;padding-top:calc(env(safe-area-inset-top,0px) + 22px);overflow:hidden;}
-.train-page-header{display:flex;align-items:center;gap:8px;padding:8px 12px;flex:none;}
-.train-page-header h1{font-size:20px;flex:1;min-width:0;overflow-wrap:anywhere;}
-.train-page-actions{display:flex;align-items:center;gap:8px;}
-.train-page-actions .btn{width:auto;padding:9px 12px;min-height:36px;}
-.train-page-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px 20px 24px;}
-.train-page-footer{flex:none;padding:0 16px calc(20px + env(safe-area-inset-bottom,0px));background:var(--bg);}
-.train-page-footer:empty{display:none;}
-.train-page-footer .train-timer{margin:0;}
-.train-page .train-catalog{max-height:none;overflow:visible;}
-body:has(.train-page) .sheet-wrap{z-index:90;}
